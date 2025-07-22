@@ -1,2 +1,2 @@
 # espcand
-A Esp32 based TCP / CAN Bus Bridge
+A Esp32 based WiFi / CAN Bus Bridge
