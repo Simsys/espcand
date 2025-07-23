@@ -10,7 +10,7 @@
             "chip": "esp32c3",
             "flashingConfig": {
                 "flashingEnabled": true,
-                "haltAfterReset": true,
+                "haltAfterReset": false,
                 "formatOptions": {
                     "binaryFormat": "idf"
                 }
