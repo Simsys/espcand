@@ -81,7 +81,7 @@ impl CommandBuffer {
     pub fn get_duration(&mut self) -> Result<Duration, Error> {
         let secs = self.get_u32()?;
         let usecs = self.get_u32()?;
-        Ok(Duration::from_secs(secs) + Duration::from_usecs(usecs))
+        Ok(Duration::from_secs(secs as u64) + Duration::from_micros(usecs as u64))
     }
 
     /// Interpret the next elements as mux data (see protocol definition)

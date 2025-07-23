@@ -6,6 +6,11 @@
     holding buffers for the duration of a data transfer."
 )]
 
+/*mod socket;
+mod utils;
+
+use utils::*;*/
+
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};

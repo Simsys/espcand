@@ -431,7 +431,7 @@ impl TryFrom<&mut CommandBuffer> for Statistics {
     fn try_from(buf: &mut CommandBuffer) -> Result<Self, Self::Error> {
         let msecs = buf.get_u32()?;
         Ok(Statistics {
-            duration: Duration::from_msecs(msecs),
+            duration: Duration::from_millis(msecs as u64),
         })
     }
 }
