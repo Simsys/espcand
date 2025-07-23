@@ -65,6 +65,8 @@ pub enum Mode {
 /// );
 /// assert!(buf.len() == 0);
 /// ```
+/// 
+/// The protocol is defined here <https://github.com/linux-can/socketcand/blob/master/doc/protocol.md>
 pub struct CommandParser {
     mode: Mode,
 }
