@@ -6,11 +6,11 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use defmt::info;
-use panic_rtt_target as _;
+use defmt::{info, println};
 
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
+use esp_backtrace as _;
 use esp_hal::{
     timer::timg::TimerGroup,
     gpio::{Level, Output, OutputConfig},
@@ -31,12 +31,15 @@ async fn run(mut led: Output<'static>) {
 }
 
 #[esp_hal_embassy::main]
-async fn main(spawner: Spawner) {
+async fn main(spawner: Spawner) -> ! {
     rtt_target::rtt_init_defmt!();
+    esp_println::logger::init_logger(log::LevelFilter::Info);
+
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
     info!("Init!");
-
+    println!("Test");
+   
     let led: Output<'_> = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_hal_embassy::init(timg0.timer0);
