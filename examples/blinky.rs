@@ -7,6 +7,7 @@
 )]
 
 use defmt::{info, println};
+use defmt_rtt as _;
 
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
@@ -32,9 +33,6 @@ async fn run(mut led: Output<'static>) {
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
-    rtt_target::rtt_init_defmt!();
-    esp_println::logger::init_logger(log::LevelFilter::Info);
-
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
     info!("Init!");

@@ -15,6 +15,7 @@
 #![no_main]
 
 use defmt::{info, println};
+use defmt_rtt as _;
 use core::net::Ipv4Addr;
 
 use embassy_executor::Spawner;
@@ -46,10 +47,8 @@ const PASSWORD: &str = env!("PASSWORD");
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
-    rtt_target::rtt_init_defmt!();
     info!("Init!");
 
-    esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
@@ -63,16 +62,9 @@ async fn main(spawner: Spawner) -> ! {
 
     let wifi_interface = interfaces.sta;
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "esp32")] {
-            let timg1 = TimerGroup::new(peripherals.TIMG1);
-            esp_hal_embassy::init(timg1.timer0);
-        } else {
-            use esp_hal::timer::systimer::SystemTimer;
-            let systimer = SystemTimer::new(peripherals.SYSTIMER);
-            esp_hal_embassy::init(systimer.alarm0);
-        }
-    }
+    use esp_hal::timer::systimer::SystemTimer;
+    let systimer = SystemTimer::new(peripherals.SYSTIMER);
+    esp_hal_embassy::init(systimer.alarm0);
 
     let config = embassy_net::Config::dhcpv4(Default::default());
 
@@ -103,7 +95,7 @@ async fn main(spawner: Spawner) -> ! {
     println!("Waiting to get IP address...");
     loop {
         if let Some(_config) = stack.config_v4() {
-            println!("Got IP: ");
+            println!("Got IP");
             break;
         }
         Timer::after(Duration::from_millis(500)).await;
