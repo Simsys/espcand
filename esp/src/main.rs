@@ -8,14 +8,13 @@
 //!
 //! Because of the huge task-arena size configured this won't work on ESP32-S2
 
-//% FEATURES: embassy esp-wifi esp-wifi/wifi esp-hal/unstable
+//% FEATURES: embassy esp-radio esp-radio/wifi esp-hal/unstable
 //% CHIPS: esp32 esp32s2 esp32s3 esp32c2 esp32c3 esp32c6
 
 #![no_std]
 #![no_main]
 
-use defmt::{info, println};
-use defmt_rtt as _;
+use esp_println::println;
 use core::net::Ipv4Addr;
 
 use embassy_executor::Spawner;
@@ -24,14 +23,15 @@ use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, rng::Rng, timer::timg::TimerGroup};
-use esp_wifi::{
-    EspWifiController,
-    init,
+use esp_radio::{
+    EspRadioController,
     wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
 };
 
+
 esp_bootloader_esp_idf::esp_app_desc!();
 
+// When you are okay with using a nightly compiler it's better to use https://docs.rs/static_cell/2.1.0/static_cell/macro.make_static.html
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
         static STATIC_CELL: static_cell::StaticCell<$t> = static_cell::StaticCell::new();
@@ -46,18 +46,18 @@ const PASSWORD: &str = env!("PASSWORD");
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
-    info!("Init!");
-
+    esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(size: 72 * 1024);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
+    esp_radio_preempt_baremetal::init(timg0.timer0);
 
-    let esp_wifi_ctrl = &*mk_static!(EspWifiController<'static>, init(timg0.timer0).unwrap());
+    let esp_wifi_ctrl = &*mk_static!(EspRadioController<'static>, esp_radio::init().unwrap());
 
-    let (controller, interfaces) = esp_wifi::wifi::new(&esp_wifi_ctrl, peripherals.WIFI).unwrap();
+    let (controller, interfaces) = esp_radio::wifi::new(&esp_wifi_ctrl, peripherals.WIFI).unwrap();
 
     let wifi_interface = interfaces.sta;
 
@@ -93,8 +93,8 @@ async fn main(spawner: Spawner) -> ! {
 
     println!("Waiting to get IP address...");
     loop {
-        if let Some(_config) = stack.config_v4() {
-            println!("Got IP");
+        if let Some(config) = stack.config_v4() {
+            println!("Got IP: {}", config.address);
             break;
         }
         Timer::after(Duration::from_millis(500)).await;
@@ -110,8 +110,8 @@ async fn main(spawner: Spawner) -> ! {
         let remote_endpoint = (Ipv4Addr::new(142, 250, 185, 115), 80);
         println!("connecting...");
         let r = socket.connect(remote_endpoint).await;
-        if let Err(_e) = r {
-            println!("connect error: ");
+        if let Err(e) = r {
+            println!("connect error {e:?}");
             continue;
         }
         println!("connected!");
@@ -121,8 +121,8 @@ async fn main(spawner: Spawner) -> ! {
             let r = socket
                 .write_all(b"GET / HTTP/1.0\r\nHost: www.mobile-j.de\r\n\r\n")
                 .await;
-            if let Err(_e) = r {
-                println!("write error: ");
+            if let Err(e) = r {
+                println!("write error {e:?}");
                 break;
             }
             let n = match socket.read(&mut buf).await {
@@ -131,8 +131,8 @@ async fn main(spawner: Spawner) -> ! {
                     break;
                 }
                 Ok(n) => n,
-                Err(_e) => {
-                    println!("read error: ");
+                Err(e) => {
+                    println!("read error {e:?}");
                     break;
                 }
             };
@@ -145,9 +145,9 @@ async fn main(spawner: Spawner) -> ! {
 #[embassy_executor::task]
 async fn connection(mut controller: WifiController<'static>) {
     println!("start connection task");
-    println!("Device capabilities: ");
+    println!("Device capabilities: {:?}", controller.capabilities());
     loop {
-        match esp_wifi::wifi::wifi_state() {
+        match esp_radio::wifi::wifi_state() {
             WifiState::StaConnected => {
                 // wait until we're no longer connected
                 controller.wait_for_event(WifiEvent::StaDisconnected).await;
@@ -168,8 +168,8 @@ async fn connection(mut controller: WifiController<'static>) {
 
             println!("Scan");
             let result = controller.scan_n_async(10).await.unwrap();
-            for _ap in result {
-                println!("?");
+            for ap in result {
+                println!("{:?}", ap);
             }
         }
         println!("About to connect...");
@@ -177,7 +177,7 @@ async fn connection(mut controller: WifiController<'static>) {
         match controller.connect_async().await {
             Ok(_) => println!("Wifi connected!"),
             Err(_e) => {
-                println!("Failed to connect to wifi: ");
+                println!("Failed to connect to wifi");
                 Timer::after(Duration::from_millis(5000)).await
             }
         }

@@ -5,7 +5,7 @@
 
 use esp_hal::{delay::Delay, main};
 use esp_backtrace as _;
-use defmt_rtt as _;
+use esp_println::println;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -19,7 +19,7 @@ fn main() -> ! {
     // Use a panic! macro to trigger a panic
 
     loop {
-        defmt::println!("Loop...");
+        println!("Loop...");
         delay.delay_millis(500u32);
     }
 }

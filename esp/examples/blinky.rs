@@ -6,9 +6,6 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use defmt::{info, println};
-use defmt_rtt as _;
-
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
@@ -16,7 +13,8 @@ use esp_hal::{
     timer::timg::TimerGroup,
     gpio::{Level, Output, OutputConfig},
 };
-
+use esp_println::println;
+use log::info;
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
@@ -34,6 +32,7 @@ async fn run(mut led: Output<'static>) {
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
+    esp_println::logger::init_logger_from_env();    
 
     info!("Init!");
     println!("Test");

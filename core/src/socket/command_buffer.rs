@@ -1,8 +1,9 @@
 use crate::{
-    Error, Duration,
+    utils::Error,
     socket::command_parser::{Vec8, Vec40},
 };
 use heapless::Deque;
+use embassy_time::Duration;
 
 /// Buffer for parsing commands sent to espcand
 ///
@@ -209,7 +210,7 @@ mod tests {
         assert!(buf.len() == 11);
         assert!(buf.is_begin() == Ok(()));
         let r = buf.get_duration().unwrap();
-        assert!(r.usecs() == 123_000_456);
+        assert!(r.as_micros() == 123_000_456);
         assert!(buf.is_end() == Ok(()));
         assert!(buf.len() == 0);
 

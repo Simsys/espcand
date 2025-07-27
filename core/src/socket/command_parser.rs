@@ -1,5 +1,6 @@
 use crate::socket::command_buffer::CommandBuffer;
-use crate::{Error, Duration};
+use crate::utils::Error;
+use embassy_time::Duration;
 use heapless::Vec;
 
 pub type Vec8 = Vec<u8, 8>;
@@ -39,6 +40,9 @@ pub enum Mode {
 /// error handling ensures that no invalid commands are accepted.
 /// 
 /// ```
+/// # use core::*;
+/// # use embassy_time::Duration;
+/// 
 /// let mut cmd_parser = CommandParser::new();
 /// let mut buf = CommandBuffer::new();
 /// buf.append(b"< open can0 >< filter 0 0 123 0 >< send 124 8 11 22 33 44 55 66 7a 8b >")
@@ -481,7 +485,7 @@ mod tests {
             .unwrap();
         let cmd = cmd_parser.parse(&mut buf).unwrap();
         let add = Add {
-            duration: Duration::from_usecs(1_000_000),
+            duration: Duration::from_micros(1_000_000),
             id: 123,
             data: Vec8::from_slice(b"\x11\x22\x33\x44\x55\x66\x77\x88").unwrap(),
         };
@@ -516,7 +520,7 @@ mod tests {
             .unwrap();
         let cmd = cmd_parser.parse(&mut buf).unwrap();
         let filter = Filter {
-            duration: Duration::from_usecs(0),
+            duration: Duration::from_micros(0),
             id: 123,
             data: Vec8::from_slice(b"\xff\x00\xf8\x00\x00\x00\x00\x00").unwrap(),
         };
@@ -527,7 +531,7 @@ mod tests {
             .unwrap();
         let cmd = cmd_parser.parse(&mut buf).unwrap();
         let mux_filter = MuxFilter {
-            duration: Duration::from_usecs(0),
+            duration: Duration::from_micros(0),
             id: 123,
             mux_data: Vec40::from_slice(
                 b"\xff\x00\x00\x00\x00\x00\x00\x00\x33\xff\xff\xff\xff\xff\xff\xff",
@@ -540,7 +544,7 @@ mod tests {
         buf.append(b"< subscribe 0 0 123 >").unwrap();
         let cmd = cmd_parser.parse(&mut buf).unwrap();
         let subscribe = Subscribe {
-            duration: Duration::from_usecs(0),
+            duration: Duration::from_micros(0),
             id: 123,
         };
         assert!(cmd == Commands::Subscribe(subscribe));
@@ -602,7 +606,7 @@ mod tests {
         buf.append(b"< statistics 1000 >").unwrap();
         let cmd = cmd_parser.parse(&mut buf).unwrap();
         let statistics = Statistics {
-            duration: Duration::from_msecs(1000),
+            duration: Duration::from_millis(1000),
         };
         assert!(cmd == Commands::Statistics(statistics));
         assert!(buf.len() == 0);

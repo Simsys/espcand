@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"name": "core",
+			"path": "core"
+		},
+		{
+			"name": "esp",
+			"path": "esp"
+		},
+		{
+			"name": "linux",
+			"path": "linux"
+		},
+		{
+			"name": "espcand",
+			"path": "."
+		}
+	],
+}
