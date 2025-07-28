@@ -25,4 +25,4 @@ if received != expected:
     exit(1)
 
 
-print(f"Bytes received {len(received)} bytes -> {(len(received)/delta)//1024} kByte/s")
+print(f"Bytes received {len(received)} bytes -> {2*(len(received)/delta)//1024} kByte/s")
