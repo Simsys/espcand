@@ -1,8 +1,8 @@
 {
 	"folders": [
 		{
-			"name": "core",
-			"path": "core"
+			"name": "corelib",
+			"path": "corelib"
 		},
 		{
 			"name": "esp",

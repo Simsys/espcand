@@ -444,6 +444,9 @@ impl TryFrom<&mut CommandBuffer> for Statistics {
 mod tests {
     use super::*;
 
+    extern crate std;
+    use std::println;
+
     #[test]
     fn ok_bcm_cases() {
         let mut cmd_parser = CommandParser::new();

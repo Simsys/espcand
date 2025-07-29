@@ -14,6 +14,8 @@ bench = false
 [workspace]
 
 [dependencies]
+corelib             = { path = "../corelib" }
+
 log                 = "0.4.27"
 embedded-io-async   = "0.6.1"
 static_cell         = { version = "2.1.0" }
