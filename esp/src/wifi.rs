@@ -1,9 +1,10 @@
 
+use embassy_futures::select::{select, Either};
 use embassy_net::{tcp::TcpSocket, Runner, Stack};
 use embassy_time::{Duration, Timer};
-use embedded_io_async::Write;
 use embassy_sync::{pipe::Pipe, blocking_mutex::raw::NoopRawMutex};
 
+use embedded_io_async::Write;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_println::println;
@@ -22,7 +23,8 @@ pub async fn communication(
 ) {
     let rx_buffer = mk_static!([u8; 4096], [0; 4096]);
     let tx_buffer = mk_static!([u8; 4096], [0; 4096]);
-    let mut buf = [0_u8; 4096];
+    let mut rxbuf = [0_u8; 1024];
+    let mut txbuf = [0_u8; 1024];
 
     loop {
         if stack.is_link_up() {
@@ -44,7 +46,7 @@ pub async fn communication(
     socket.set_timeout(Some(Duration::from_secs(10)));
 
     loop {
-        info!("Listening on TCP:1234... state {}", socket.state());
+        info!("Listening on TCP:1234...");
         if let Err(e) = socket.accept(1234).await {
             warn!("accept error: {:?}", e);
             continue;
@@ -57,28 +59,27 @@ pub async fn communication(
                 warn!("Connection closed");
                 break;
             }
-            if socket.can_recv() {
-                let n =match socket.read(&mut buf).await {
-                    Ok(n) => n,
-                    Err(e) => {
-                        warn!("read error: {:?}", e);
-                        break;
-                    }
-                };
-                let _ = wifi_rx_data.write_all(&buf[..n]).await;
-            }
 
-            while wifi_tx_data.len() > 0 {
-                let n = wifi_tx_data.read(&mut buf).await;
-                match socket.write_all(&buf[..n]).await {
-                    Ok(()) => (),
-                    Err(e) => {
-                        warn!("write error: {:?}", e);
-                        break;
-                    }
+            // define socket read and write future
+            let socket_write = async {
+                wifi_tx_data.read(&mut txbuf).await
+            };
+            let socket_read = async {
+                match socket.read(&mut rxbuf).await {
+                    Ok(n) => n,
+                    Err(_) => 0,
                 }
-            }
-            Timer::after(Duration::from_millis(1)).await;
+            };
+
+            // Wait for both and handle first event 
+            match select(socket_write, socket_read).await {
+                Either::First(n) => {
+                    let _ = socket.write_all(&txbuf[..n]).await;
+                }
+                Either::Second(n) => {
+                    let _ = wifi_rx_data.write_all(&rxbuf[..n]).await;
+                }
+            };
         }
     }
 }
