@@ -735,6 +735,7 @@ dependencies = [
  "esp-radio",
  "esp-radio-preempt-baremetal",
  "log",
+ "nb 1.1.0",
  "static_cell",
 ]
 

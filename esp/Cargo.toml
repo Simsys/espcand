@@ -40,6 +40,9 @@ esp-println         = { path = "../esp-hal/esp-println", features = ["log-04"] }
 esp-radio           = { path = "../esp-hal/esp-radio", features = ["wifi", "log-04"]}
 esp-radio-preempt-baremetal = { path = "../esp-hal/esp-radio-preempt-baremetal", features = ["log-04"]}
 
+[dev-dependencies]
+nb                  = "1.1.0"
+
 [features]
 default = ["esp32c3"]
 esp32c3 = [
