@@ -41,7 +41,6 @@ esp_bootloader_esp_idf::esp_app_desc!();
 fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
-    // Use these if you want to use an external transceiver:
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
 
