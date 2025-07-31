@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-heapless = "0.8.0"
 embassy-time        = { version = "0.4.0", features = [] }
 embassy-sync        = { version = "0.6.2", features = [] }
+
+embedded-can = "0.4.1"
+heapless = "0.8.0"
+modular-bitfield = "0.12.0"
