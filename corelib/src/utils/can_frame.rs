@@ -1,15 +1,18 @@
 #![allow(dead_code)]
 
+use core::fmt::{Display, Formatter};
+
 use embedded_can::{ExtendedId, Frame, Id, StandardId};
 use heapless::Vec;
 use modular_bitfield::{bitfield, specifiers::{B4, B2}};
 
-use crate::{Serialize, Error};
+use crate::{DeSerialize, Error, Serialize};
 
 pub type Vec8 = Vec<u8, 8>;
-pub type Vec40 = Vec<u8, 40>;
+pub type Vec30 = Vec<u8, 30>;
 
 #[bitfield]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct Info {
     dlc: B4,
     #[allow(non_snake_case)]
@@ -18,6 +21,7 @@ struct Info {
     extended: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CanFrame {
     id: u32,
     info: Info,
@@ -124,6 +128,21 @@ impl CanFrame {
         }
     }
 
+    pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
+        let id = deser.get_u32_hex()?;
+        let info = Info::from_bytes([deser.get_u32_hex()? as u8, ]);
+
+        let vec = deser.get_slice_hex()?;
+        if !info.remote() {
+            if vec.len() != info.dlc() as usize {
+                return Err(Error::ParseError)
+            }
+        }
+        let mut data = [0_u8; 8];
+        data[..vec.len()].copy_from_slice(&vec);
+        Ok(Self { id, info, data })
+    }
+
     pub fn serialize(&self, ser: &mut impl Serialize) -> Result<(), Error> {
         let info = self.info.bytes[0];
         let l = self.info.dlc() as usize;
@@ -139,10 +158,19 @@ impl CanFrame {
     }
 }
 
+impl Display for CanFrame {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let mut ser = crate::Ser::<30>::new();
+        let _ = self.serialize(&mut ser);
+        let _ = write!(f, "CanFrame{}", str::from_utf8(ser.as_slice()).unwrap());
+        Ok(())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
-    use crate::Ser;
+    use crate::{Ser, DeSer};
 
     use super::*;
 
@@ -151,35 +179,25 @@ mod tests {
 
     #[test]
     fn ok_can_frames() {
-        let id = StandardId::new(0x12a).unwrap();
-        let frame = CanFrame::new(id, b"\x1a\x2b\x3c").unwrap();
+        let slice = b",12a,3,1a2b3c,";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let frame = CanFrame::deserialize(&mut deser).unwrap();
         let mut ser = Ser::<40>::new();
         frame.serialize(&mut ser).unwrap();
         println!("frame {}", str::from_utf8(ser.as_slice()).unwrap());
-        assert_eq!(ser.as_slice(), b",12a,3,1a2b3c");
+        assert_eq!(ser.as_slice(), &slice[..slice.len()-1]);
 
-        let id = ExtendedId::new(0x12a4).unwrap();
-        let frame = CanFrame::new(id, b"\x1a\x2b\x3c\x4d\x5e\x6f\x70\x81").unwrap();
+        let slice = b",12a4,88,1a2b3c4d5e6f7081,";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let frame = CanFrame::deserialize(&mut deser).unwrap();
         let mut ser = Ser::<40>::new();
         frame.serialize(&mut ser).unwrap();
         println!("frame {}", str::from_utf8(ser.as_slice()).unwrap());
-        assert_eq!(ser.as_slice(), b",12a4,88,1a2b3c4d5e6f7081");
+        assert_eq!(ser.as_slice(), &slice[..slice.len()-1]);
 
-        let id = StandardId::new(0xaa).unwrap();
-        let frame = CanFrame::new_remote(id, 5).unwrap();
-        let mut ser = Ser::<40>::new();
-        frame.serialize(&mut ser).unwrap();
-        println!("frame {}", str::from_utf8(ser.as_slice()).unwrap());
-        assert_eq!(ser.as_slice(), b",aa,45,");
-
-        let id = StandardId::new(0x12a).unwrap();
-        let frame = CanFrame::new(id, b"\x1a\x2b\x3c").unwrap();
-        let mut ser = Ser::<40>::new();
-        ser.add_slice(b"$FR").unwrap();
-        frame.serialize(&mut ser).unwrap();
-        ser.add_byte(b'\n').unwrap();
-        println!("frame {}", str::from_utf8(ser.as_slice()).unwrap());
-        assert_eq!(ser.as_slice(), b"$FR,12a,3,1a2b3c\n");
+        let slice = b",12a,2,1a2b3c,";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        assert_eq!(CanFrame::deserialize(&mut deser), Err(Error::ParseError));
     }
 
 }

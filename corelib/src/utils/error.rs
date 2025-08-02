@@ -5,8 +5,8 @@ pub enum Error {
     SerializeError,
     /// Generated when the received command is invalid
     ParseError,
-    /// Item was not found
-    NotFound,
+    /// Datagram end char not found
+    EndNotFound,
     /// The buffer is full and data has been lost.
     BufIsFull,
     /// No start character found in the data stream

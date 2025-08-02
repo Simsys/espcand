@@ -1,4 +1,4 @@
-use crate::utils::Error;
+use crate::{Error, Vec8};
 use heapless::Vec;
 
 pub trait Serialize {
@@ -106,6 +106,136 @@ impl<const CAP: usize> Serialize for Ser<CAP> {
 }
 
 
+pub trait DeSerialize {
+    fn as_slice(&self) -> &[u8];    fn capacity(&self) -> usize;
+    fn get_slice(&mut self) -> Result<&[u8], Error>;
+    fn get_slice_hex(&mut self) -> Result<Vec8, Error>;
+    fn get_u32(&mut self) -> Result<u32, Error>;
+    fn get_u32_hex(&mut self) -> Result<u32, Error>;
+    fn is_end(&self) -> bool;
+    fn push(&mut self, b: u8) -> Result<(), Error>;
+}
+
+pub struct DeSer<const CAP: usize> {
+    vec: Vec<u8, CAP>,
+    head: usize,
+    is_end: bool,
+}
+
+impl<const CAP: usize> DeSer<CAP> {
+    pub fn new() -> Self {
+        Self { vec: Vec::new(), head: 0, is_end: false }
+    }
+
+    pub fn from_slice(slice: &[u8]) -> Result<Self, Error> {
+        let mut vec = Vec::<u8, CAP>::new();
+        vec.extend_from_slice(slice).map_err(|_| Error::NotSupported)?;
+        Ok(Self { vec, head: 0, is_end: false })
+
+    }
+
+    pub fn clear(&mut self) {
+        self.vec.clear();
+    }
+
+    pub fn extend_from_slice(&mut self, src: &[u8]) -> Result<(), Error> {
+        self.vec.extend_from_slice(src).map_err(|_| Error::BufIsFull)
+    }
+}
+
+impl<const CAP: usize> DeSerialize for DeSer<CAP> {
+    fn as_slice(&self) -> &[u8] {
+        self.vec.as_slice()
+    }
+
+    fn capacity(&self) -> usize {
+        CAP
+    }
+
+    fn get_slice(&mut self) -> Result<&[u8], Error> {
+        let start = self.head;
+        loop {
+            self.head += 1;
+            if self.head >= self.vec.len() {
+                return Err(Error::ParseError)
+            }
+            let b = self.vec[self.head];
+            if b == b',' || b == b'\n' {
+                if b == b'\n' {
+                    self.is_end = true;
+                }
+                return Ok(&self.vec[start..self.head]);
+            }
+        }
+    }
+
+    fn get_slice_hex(&mut self) -> Result<Vec8, Error> {
+        fn get_nibble(b: u8) -> Result<u8, Error> {
+            match b {
+                b'0'..=b'9' => Ok(b - b'0'),
+                b'a'..=b'f' => Ok(b - b'a' + 10),
+                _ => return Err(Error::ParseError)
+            }
+        }
+        // slice has at least a len of 1 
+        let slice = &self.get_slice()?[1..];
+
+        if slice.len() & 0x01 == 1 {
+            return Err(Error::ParseError)
+        }
+        let mut idx = 0;
+        let mut vec = Vec8::new();
+        while idx < slice.len() {
+            let b = get_nibble(slice[idx])? * 16 + get_nibble(slice[idx+1])?;
+            vec.push(b).map_err(|_| Error::ParseError)?;
+            idx += 2;
+        }
+        Ok(vec)
+    }
+
+    fn get_u32(&mut self) -> Result<u32, Error> {
+        let slice = &self.get_slice()?[1..];
+        let mut r = 0_u32;
+        for b in slice {
+            r *=10;
+            match *b {
+                b'0'..=b'9' => r += (*b - b'0') as u32,
+                _ => return Err(Error::ParseError)
+                 
+            }
+        }
+        Ok(r)
+    }
+
+    fn get_u32_hex(&mut self) -> Result<u32, Error> {
+        let slice = &self.get_slice()?[1..];
+        let mut r = 0_u32;
+        for b in slice {
+            r *=16;
+            match *b {
+                b'0'..=b'9' => r += (*b - b'0') as u32,
+                b'a'..=b'f' => r += (*b - b'a' + 10) as u32,
+                _ => return Err(Error::ParseError)
+                 
+            }
+        }
+        Ok(r)
+    }
+
+    fn is_end(&self) -> bool {
+        self.is_end
+    }
+
+    fn push(&mut self, b: u8) -> Result<(), Error> {
+        self.vec.push(b).map_err(|_| Error::BufIsFull)
+    }
+}
+
+
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,7 +245,44 @@ mod tests {
     use std::println;
 
     #[test]
-    fn ok_simple() {
+    fn ok_deser_simple() {
+        let mut de_ser = DeSer::<40>::new();
+        de_ser.extend_from_slice(b"$123,456,789\n").unwrap();
+        assert_eq!(de_ser.get_slice().unwrap(), b"$123");
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_slice().unwrap(), b",456");
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_slice().unwrap(), b",789");
+        assert_eq!(de_ser.is_end, true);
+
+        let mut de_ser = DeSer::<40>::new();
+        de_ser.extend_from_slice(b",1a2b,456,1a2b3c4d5e6f7081\n").unwrap();
+        assert_eq!(de_ser.get_u32_hex().unwrap(), 0x1a2b);
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_u32().unwrap(), 456);
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_slice_hex().unwrap().as_slice(), b"\x1a\x2b\x3c\x4d\x5e\x6f\x70\x81");
+        assert_eq!(de_ser.is_end, true);
+
+        let mut de_ser = DeSer::<40>::new();
+        de_ser.extend_from_slice(b",1a2x,45a,001a2b3c4d5e6f7081,1\n").unwrap();
+        assert_eq!(de_ser.get_u32_hex(), Err(Error::ParseError));
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_u32(), Err(Error::ParseError));
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_slice_hex(), Err(Error::ParseError));
+        assert_eq!(de_ser.is_end, false);
+        assert_eq!(de_ser.get_slice_hex(), Err(Error::ParseError));
+        assert_eq!(de_ser.is_end, true);
+
+        let mut de_ser = DeSer::<40>::new();
+        de_ser.extend_from_slice(b",a2,\n").unwrap();
+        assert_eq!(de_ser.get_slice_hex().unwrap().as_slice(), b"\xa2");
+        assert_eq!(de_ser.get_slice_hex().unwrap().as_slice(), b"");
+    }
+
+    #[test]
+    fn ok_ser_simple() {
         let mut ser: Ser<40> = Ser::new();
         ser.add_byte(b'c').unwrap();
         assert_eq!(ser.as_slice(), b"c");

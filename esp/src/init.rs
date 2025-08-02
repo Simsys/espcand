@@ -3,7 +3,13 @@ use embassy_net::{Runner, StackResources, Stack};
 use embassy_sync::pipe::Pipe;
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::{clock::CpuClock, rng::Rng, timer::timg::TimerGroup};
+use esp_hal::{
+    Async,
+    clock::CpuClock, 
+    rng::Rng, 
+    timer::timg::TimerGroup,
+    twai::{self, filter::SingleStandardFilter, TwaiMode, Twai},
+};
 use esp_radio::{
     EspRadioController,
     wifi::{WifiController, WifiDevice},
@@ -18,6 +24,7 @@ pub fn init() ->
     WifiController<'static>, 
     &'static WifiPipe,
     &'static WifiPipe,
+    Twai<'static, Async>,
 ) {
     esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -54,12 +61,31 @@ pub fn init() ->
     let wifi_rx_data = &*mk_static!(WifiPipe, Pipe::new());
     let wifi_tx_data = &*mk_static!(WifiPipe, Pipe::new());
 
+    let tx_pin = peripherals.GPIO3;
+    let rx_pin = peripherals.GPIO2;
+
+    const TWAI_BAUDRATE: twai::BaudRate = twai::BaudRate::B1000K;
+
+    let mut twai_config = twai::TwaiConfiguration::new(
+        peripherals.TWAI0,
+        rx_pin,
+        tx_pin,
+        TWAI_BAUDRATE,
+        TwaiMode::Normal,
+    ).into_async();
+    twai_config.set_filter(
+        //const { SingleStandardFilter::new(b"01010000000", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
+        const { SingleStandardFilter::new(b"xxxxxxxxxxx", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
+    );
+    let twai: Twai<'_, Async> = twai_config.start();
+
     (
         runner,
         stack,
         controller,
         wifi_rx_data,
         wifi_tx_data,
+        twai
     )
 }
 
