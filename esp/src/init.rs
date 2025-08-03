@@ -20,6 +20,8 @@ use esp_radio::{
 
 use corelib::*;
 
+const CAN_BAUDRATE: &str = env!("CAN_BAUDRATE");
+
 pub fn init() ->
 (
     Runner<'static, WifiDevice<'static>>,
@@ -66,17 +68,21 @@ pub fn init() ->
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
 
-    const TWAI_BAUDRATE: twai::BaudRate = twai::BaudRate::B1000K;
-
+    let baud_rate = match CAN_BAUDRATE {
+        "B125K" => twai::BaudRate::B125K,
+        "B250K" => twai::BaudRate::B250K,
+        "B500K" => twai::BaudRate::B500K,
+        _ => twai::BaudRate::B1000K,
+    };
+    
     let mut twai_config = twai::TwaiConfiguration::new(
         peripherals.TWAI0,
         rx_pin,
         tx_pin,
-        TWAI_BAUDRATE,
+        baud_rate,
         TwaiMode::Normal,
     ).into_async();
     twai_config.set_filter(
-        //const { SingleStandardFilter::new(b"01010000000", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
         const { SingleStandardFilter::new(b"xxxxxxxxxxx", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
     );
     let twai: Twai<'_, Async> = twai_config.start();
