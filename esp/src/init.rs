@@ -1,6 +1,9 @@
 use embassy_net::{Runner, StackResources, Stack};
+use embassy_sync::{
+        blocking_mutex::raw::CriticalSectionRawMutex, 
+        watch::{Watch, Sender, Receiver},
+};
 
-use embassy_sync::pipe::Pipe;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -15,16 +18,18 @@ use esp_radio::{
     wifi::{WifiController, WifiDevice},
 };
 
-use corelib::WifiPipe;
+use corelib::*;
 
 pub fn init() ->
 (
     Runner<'static, WifiDevice<'static>>,
     Stack<'static>,
     WifiController<'static>, 
-    &'static WifiPipe,
-    &'static WifiPipe,
     Twai<'static, Async>,
+    &'static ComChannel,
+    &'static ComChannel,
+    Receiver<'static, CriticalSectionRawMutex, bool, 1>,
+    Sender<'static, CriticalSectionRawMutex, bool, 1>,
 ) {
     esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -58,9 +63,6 @@ pub fn init() ->
         seed,
     );
 
-    let wifi_rx_data = &*mk_static!(WifiPipe, Pipe::new());
-    let wifi_tx_data = &*mk_static!(WifiPipe, Pipe::new());
-
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
 
@@ -79,13 +81,22 @@ pub fn init() ->
     );
     let twai: Twai<'_, Async> = twai_config.start();
 
+    let can_rx_channel = &*mk_static!(ComChannel, ComChannel::new());
+    let can_tx_channel = &*mk_static!(ComChannel, ComChannel::new());
+
+    static SIGNAL_CONN: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
+    let signal_conn_rx: Receiver<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.receiver().unwrap();
+    let signal_conn_tx: Sender<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.sender();
+    
     (
         runner,
         stack,
         controller,
-        wifi_rx_data,
-        wifi_tx_data,
-        twai
+        twai,
+        can_rx_channel,
+        can_tx_channel,
+        signal_conn_rx,
+        signal_conn_tx,
     )
 }
 

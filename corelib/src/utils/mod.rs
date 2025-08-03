@@ -1,14 +1,14 @@
 mod can_frame;
 mod error;
-mod ringbuffer;
+mod rx_buffer;
 mod ser_deser;
 
 pub use can_frame::*;
 pub use error::*;
-pub use ringbuffer::*;
+pub use rx_buffer::*;
 pub use ser_deser::*;
 
-
+#[derive(Debug)]
 pub enum ComItem {
     FrameToSend(CanFrame),
     ReceivedFrame(CanFrame),

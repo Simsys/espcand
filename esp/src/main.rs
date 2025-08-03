@@ -15,26 +15,15 @@
 #![no_main]
 mod macros;
 
+mod can;
 mod init;
 mod wifi;
 
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, Either};
-use embassy_sync::{
-        blocking_mutex::raw::CriticalSectionRawMutex, 
-        watch::{Watch, Sender, Receiver},
-};
+use embassy_futures::yield_now;
 
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal:: {
-    Async,
-    twai::Twai,
-};
-use esp_println::println;
-use log::info;
-
-use corelib::*;
 
 use init::*;
 
@@ -46,66 +35,20 @@ async fn main(spawner: Spawner) -> ! {
         runner, 
         stack, 
         controller,
-        wifi_rx_data,
-        _wifi_tx_data,
         twai,
+        can_rx_channel,
+        can_tx_channel,
+        signal_conn_rx,
+        signal_conn_tx,
     ) = init();
 
     spawner.spawn(wifi::connection(controller)).ok();
     spawner.spawn(wifi::net_task(runner)).ok();
+    spawner.spawn(wifi::comm(stack, can_tx_channel, can_rx_channel, signal_conn_tx)).ok();
+    spawner.spawn(can::comm(twai, can_rx_channel, can_tx_channel, signal_conn_rx)).ok();
 
-    static CONNECTION: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
-    let set_connection: Sender<'_, CriticalSectionRawMutex, bool, 1> = CONNECTION.sender();
-    let connection: Receiver<'_, CriticalSectionRawMutex, bool, 1> = CONNECTION.receiver().unwrap();
-
-    let comm_channel = &*mk_static!(ComChannel, ComChannel::new());
-    spawner.spawn(wifi::communication(stack, wifi_rx_data, comm_channel, set_connection)).ok();
-    spawner.spawn(run(twai, comm_channel, connection)).ok();
-
-    let mut buf = [0_u8; 4096];
     loop {
-        let _n = wifi_rx_data.read(&mut buf).await;
-        //wifi_tx_data.write(&mut buf[..n]).await;
-
-    }
-}
-
-#[embassy_executor::task]
-async fn run(
-    mut twai: Twai<'static, Async>, 
-    com_channel: &'static ComChannel,
-    mut connection: Receiver<'static, CriticalSectionRawMutex, bool, 1>,
-) {
-    info!("start can receive");
-    let mut is_connected = false;
-    loop {
-        let conn = async {
-            connection.changed().await
-        };
-        let r_frame = async {
-            twai.receive_async().await
-        };
-
-        match select(conn, r_frame).await {
-            Either::First(connected) => {
-                is_connected = connected;
-            }
-            Either::Second(r_frame) => {
-                let frame = match r_frame {
-                    Err(_) => {
-                        println!("Got can bus error");
-                        continue;
-                    }
-                    Ok(esp_frame) => CanFrame::from_frame(esp_frame),
-                };
-                if is_connected {
-                    match com_channel.try_send(ComItem::ReceivedFrame(frame)) {
-                        Ok(()) => (),
-                        Err(_) => println!("Can Queue Error"),
-                    }
-                }
-            }
-        };
+        yield_now().await;
     }
 }
 
