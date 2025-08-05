@@ -37,7 +37,7 @@ impl InputWidget {
             ));
     }
 
-    pub fn submit_message(&mut self) -> String {
+    pub fn get_message(&mut self) -> String {
         let r = self.input.clone();
         self.input.clear();
         self.reset_cursor();

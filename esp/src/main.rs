@@ -19,13 +19,14 @@ mod can;
 mod init;
 mod wifi;
 
+use corelib::ComItem;
 use embassy_executor::Spawner;
-use embassy_futures::yield_now;
 
 use esp_alloc as _;
 use esp_backtrace as _;
 
 use init::*;
+use corelib::*;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -36,19 +37,26 @@ async fn main(spawner: Spawner) -> ! {
         stack, 
         controller,
         twai,
-        can_rx_channel,
+        wifi_tx_channel,
         can_tx_channel,
+        wifi_rx_channel,
         signal_conn_rx,
         signal_conn_tx,
     ) = init();
 
     spawner.spawn(wifi::connection(controller)).ok();
     spawner.spawn(wifi::net_task(runner)).ok();
-    spawner.spawn(wifi::comm(stack, can_tx_channel, can_rx_channel, signal_conn_tx)).ok();
-    spawner.spawn(can::comm(twai, can_rx_channel, can_tx_channel, signal_conn_rx)).ok();
+    spawner.spawn(wifi::comm(stack, wifi_rx_channel, wifi_tx_channel, signal_conn_tx)).ok();
+    spawner.spawn(can::comm(twai, wifi_tx_channel, can_tx_channel, signal_conn_rx)).ok();
 
     loop {
-        yield_now().await;
+        let datagram = wifi_rx_channel.receive().await;
+        match datagram {
+            ComItem::FrameToSend(_) => can_tx_channel.send(datagram).await,
+            ComItem::Echo | ComItem::Error(_) => wifi_tx_channel.send(datagram).await,
+            _ => wifi_tx_channel.send(ComItem::Error(Error::UnknownCommand)).await,
+        }
+        
     }
 }
 

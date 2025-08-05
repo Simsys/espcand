@@ -23,6 +23,9 @@ impl<const CAP: usize> RxBuffer<CAP> {
     }
 
     pub fn read(&mut self, de_ser: &mut impl DeSerialize) -> Result<(), Error> {
+        if self.head == self.tail {
+            return Err(Error::BufIsEmpty);
+        }
         let mut tail = self.tail;
         let mut start = false;
         while tail != self.head {

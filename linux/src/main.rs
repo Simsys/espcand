@@ -71,7 +71,8 @@ impl App {
 
                 let _ = self.handle_events();
                 if self.input.len() > 0 {
-                    self.widgets.cmd().add_item(self.input.clone());
+                    let cmd = format!("<= {}", self.input.as_str());
+                    self.widgets.cmd().add_item(cmd);
                     self.input.push('\n');
                     stream.write_all(self.input.as_bytes()).await?;
                     self.input.clear();
@@ -89,7 +90,7 @@ impl App {
                 if key.kind == KeyEventKind::Press {
                     self.should_exit = false;
                     match key.code {
-                        KeyCode::Enter => self.input = self.input_widget.submit_message(),
+                        KeyCode::Enter => self.input = self.input_widget.get_message(),
                         KeyCode::Char('c') => if key.modifiers == KeyModifiers::CONTROL {
                             self.should_exit = true;
                         } else {

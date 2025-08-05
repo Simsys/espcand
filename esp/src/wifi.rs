@@ -15,7 +15,7 @@ use esp_radio::wifi::{ClientConfiguration, Configuration, WifiController, WifiDe
 use embedded_io_async::Write;
 use log::{info, warn};
 
-use corelib::{ComChannel, ComItem, DeSer, DeSerialize, Error, RxBuffer, Serialize}; 
+use corelib::{ComChannel, ComItem, DeSer, Error, RxBuffer, Serialize}; 
 
 
 const SSID: &str = env!("SSID");
@@ -77,7 +77,7 @@ pub async fn comm(
                 &mut rxbuf,
             ).await {
                 Ok(()) => (),
-                Err(error) => println!("Wifi Error {:?}", error),
+                Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
             }
         }
     }
@@ -115,11 +115,15 @@ async fn socket_write_read<'a>(
                 let mut de_ser = DeSer::<50>::new();
                 match rxbuf.read(&mut de_ser) {
                     Ok(()) => (),
-                    Err(_) => break,
+                    Err(e) => {
+                        match e {
+                            Error::BufIsEmpty => return Ok(()),
+                            _ => return Err(e),
+                        }
+                    }
                 }
                 let item = ComItem::deserialize(&mut de_ser)?;
-                println!("ComItem {:?}, DeSer {}", item, str::from_utf8(de_ser.as_slice()).unwrap());
-                wifi_rx_channel.send(item).await
+                wifi_rx_channel.send(item).await;
             }
         }
     };

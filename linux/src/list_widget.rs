@@ -87,10 +87,11 @@ impl<const CAP:usize> AsyncWrite for &mut ListWidgets<CAP> {
                     s.push(ch);
                 } 
             } else {
-                if &s.as_str()[..3] == "$RF" {
+                if &s.as_str()[..3] == "$rf" {
                     self.can_widget.add_item(s.clone());
                 } else {
-                    self.cmd_widget.add_item(s.clone());
+                    let s = format!("=> {}", &s.as_str());
+                    self.cmd_widget.add_item(s);
                 }
                 s.clear();
             }

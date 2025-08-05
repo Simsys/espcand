@@ -19,7 +19,7 @@ use corelib::*;
 #[embassy_executor::task]
 pub async fn comm(
     mut twai: Twai<'static, Async>, 
-    can_rx_channel: &'static ComChannel,
+    wifi_tx_channel: &'static ComChannel,
     can_tx_channel: &'static ComChannel,
     mut connection: Receiver<'static, CriticalSectionRawMutex, bool, 1>,
 ) {
@@ -49,7 +49,7 @@ pub async fn comm(
                     Ok(esp_frame) => CanFrame::from_frame(esp_frame),
                 };
                 if is_connected {
-                    match can_rx_channel.try_send(ComItem::ReceivedFrame(frame)) {
+                    match wifi_tx_channel.try_send(ComItem::ReceivedFrame(frame)) {
                         Ok(()) => (),
                         Err(_) => println!("Can Queue Error"),
                     }
