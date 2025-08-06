@@ -1,5 +1,6 @@
 mod config;
 mod input_widget;
+mod interpret;
 mod list_widget;
 
 use std::{
@@ -23,6 +24,7 @@ use smol::{
 
 use config::Config;
 use input_widget::InputWidget;
+use interpret::interpret;
 use list_widget::ListWidgets;
 
 fn main() -> Result<()> {
@@ -57,6 +59,12 @@ impl App {
         }
     }
 
+    fn get_input(&mut self) -> String {
+        let r = self.input.clone();
+        self.input.clear();
+        r
+    }
+
     /// Run the app until the user exits.
     fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         let toml_str = std::fs::read_to_string("config.toml")
@@ -79,12 +87,15 @@ impl App {
                 .await;
 
                 let _ = self.handle_events();
-                if self.input.len() > 0 {
-                    let cmd = format!("<= {}", self.input.as_str());
-                    self.widgets.cmd().add_item(cmd);
-                    self.input.push('\n');
-                    stream.write_all(self.input.as_bytes()).await?;
-                    self.input.clear();
+                for (send_to_stream, cmd) in interpret(self.get_input(), &config) {
+                    if send_to_stream {
+                        let show = format!("<= {}", cmd.as_str());
+                        self.widgets.cmd().add_item(show);
+                        stream.write_all(cmd.as_bytes()).await?;         
+                    } else {
+                        self.widgets.cmd().add_item(cmd);
+                    }
+
                 }
                 terminal.draw(|frame| self.render(frame))?;
             }
