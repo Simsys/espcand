@@ -2,6 +2,7 @@ use crate::{Error, Vec8};
 use heapless::Vec;
 
 pub trait Serialize {
+    fn add_bool(&mut self, b: bool) -> Result<(), Error> where Self: Sized;
     fn add_byte(&mut self, b: u8) -> Result<(), Error> where Self: Sized;
     fn add_slice(&mut self, slice: &[u8]) -> Result<(), Error> where Self: Sized;
     fn add_slice_hex(&mut self, slice: &[u8]) -> Result <(), Error> where Self: Sized;
@@ -22,9 +23,12 @@ impl<const CAP: usize> Ser<CAP> {
 }
 
 impl<const CAP: usize> Serialize for Ser<CAP> {
+    fn add_bool(&mut self, b: bool) -> Result<(), Error> {
+        self.buf.push(b as u8).map_err(|_| Error::SerializeError)
+    }
+
     fn add_byte(&mut self, b: u8) -> Result<(), Error> {
-        self.buf.push(b).map_err(|_| Error::SerializeError)?;
-        Ok(())
+        self.buf.push(b).map_err(|_| Error::SerializeError)
     }
 
     fn add_slice(&mut self, slice: &[u8]) -> Result<(), Error> {
@@ -108,6 +112,7 @@ impl<const CAP: usize> Serialize for Ser<CAP> {
 
 pub trait DeSerialize {
     fn as_slice(&self) -> &[u8];    fn capacity(&self) -> usize;
+    fn get_bool(&mut self) -> Result<bool, Error>;
     fn get_slice(&mut self) -> Result<&[u8], Error>;
     fn get_slice_hex(&mut self) -> Result<Vec8, Error>;
     fn get_u32(&mut self) -> Result<u32, Error>;
@@ -150,6 +155,15 @@ impl<const CAP: usize> DeSerialize for DeSer<CAP> {
 
     fn capacity(&self) -> usize {
         CAP
+    }
+
+    fn get_bool(&mut self) -> Result<bool, Error> {
+        let slice = &self.get_slice()?[1..];
+        if slice.len() == 1 {
+            Ok(slice[0] == b'1')
+        } else {
+            Err(Error::ParseError)
+        }
     }
 
     fn get_slice(&mut self) -> Result<&[u8], Error> {

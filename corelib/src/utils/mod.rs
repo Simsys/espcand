@@ -1,10 +1,12 @@
 mod can_frame;
 mod error;
+mod filter;
 mod rx_buffer;
 mod ser_deser;
 
 pub use can_frame::*;
 pub use error::*;
+pub use filter::*;
 pub use rx_buffer::*;
 pub use ser_deser::*;
 
