@@ -2,6 +2,7 @@ use ratatui::{
     Frame,
     layout::Rect,
     widgets::{Block, List, ListItem},
+    style::Stylize,
 };
 use std::collections::VecDeque;
 use smol::io::{AsyncWrite, Error};
@@ -31,7 +32,26 @@ impl<const CAP: usize> ListWidget<CAP> {
         };
         let content: Vec<ListItem> = self.content
             .range(start_idx..)
-            .map(|s| ListItem::new(s.clone()))
+            .map(|s| {
+                let mut item = ListItem::new(s.clone());
+                if s.as_bytes().len() >= 3 {
+                    if &s.as_bytes()[..3] == b"<= " {
+                        item = item.green();
+                    }
+                    if &s.as_bytes()[..3] == b"=> " {
+                        item = item.yellow();
+                    }
+                    if &s.as_bytes()[..3] == b"$rf" {
+                        item = item.blue();
+                    }
+                }
+                if s.as_bytes().len() >= 7 {
+                    if &s.as_bytes()[..7] == b"=> $err" {
+                        item = item.red();
+                    }
+                }
+                item
+            })
             .collect();
         let content = List::new(content).block(Block::bordered().title(self.border_title));
         frame.render_widget(content, *area);
@@ -87,7 +107,7 @@ impl<const CAP:usize> AsyncWrite for &mut ListWidgets<CAP> {
                     s.push(ch);
                 } 
             } else {
-                if &s.as_str()[..3] == "$rf" {
+                if s.len() >= 3 && &s.as_str()[..3] == "$rf" {
                     self.can_widget.add_item(s.clone());
                 } else {
                     let s = format!("=> {}", &s.as_str());

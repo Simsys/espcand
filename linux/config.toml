@@ -1,0 +1,7 @@
+ip = "192.168.178.170:1234"
+
+[commands]
+echo = { help = "Echo from server", cmds = ["$echo\n"] }
+generic = { help = "Receive generic datagrams", cmds = ["$pfilt,0,\"1xx_xxxx_xxxx\"\n"]}
+specific = { help = "Receive specific datagrams", cmds = ["$pfilt,0,\"0xx_xxxx_xxxx\"\n"]}
+clear = { help = "Clear all filters", cmds = ["$clearfilt\n"] }

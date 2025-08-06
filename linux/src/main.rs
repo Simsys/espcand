@@ -1,8 +1,8 @@
+mod config;
 mod input_widget;
 mod list_widget;
 
 use std::{
-    net::TcpStream,
     time::Duration,
 };
 
@@ -14,10 +14,14 @@ use ratatui::{
     Frame,
 };
 use smol::{
-    future::FutureExt, io::AsyncWriteExt, stream::StreamExt, Async, Timer
+    future::FutureExt, 
+    io::AsyncWriteExt, 
+    stream::StreamExt, 
+    Timer,
+    net::TcpStream,
 };
 
-
+use config::Config;
 use input_widget::InputWidget;
 use list_widget::ListWidgets;
 
@@ -55,13 +59,18 @@ impl App {
 
     /// Run the app until the user exits.
     fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+        let toml_str = std::fs::read_to_string("config.toml")
+            .expect("Failed to read config.toml file");
+        let config: Config = toml::from_str(&toml_str)
+            .expect("Failed to deserialize Cargo.toml");
+
         smol::block_on(async {
-            let mut stream = Async::<TcpStream>::connect(([192, 168, 178, 170], 1234)).await?;
+            let mut stream = TcpStream::connect(&config.ip).await?;
 
             while !self.should_exit {
                 FutureExt::or(
                     async {
-                        let _ = smol::io::copy(&stream, &mut self.widgets).await;
+                        let _ = smol::io::copy(&mut stream, &mut self.widgets).await;
                     },
                     async {
                         Timer::interval(Self::TICK_RATE).next().await;
