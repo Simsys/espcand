@@ -12,9 +12,12 @@ pub use ser_deser::*;
 
 #[derive(Debug)]
 pub enum ComItem {
+    ClearFilters,
     Echo,
     Error(Error),
     FrameToSend(CanFrame),
+    NFilter(NFilter),
+    PFilter(PFilter),
     ReceivedFrame(CanFrame),
 }
 
@@ -22,9 +25,12 @@ impl ComItem {
     pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
         let slice = deser.get_slice()?;
         let r = match slice {
+            b"$clearfilt" => ComItem::ClearFilters,
             b"$echo" => ComItem::Echo,
             b"$err" => ComItem::Error(Error::deserialize(deser)?),
             b"$fts" => ComItem::FrameToSend(CanFrame::deserialize(deser)?),
+            b"$nfilt" => ComItem::NFilter(NFilter::deserialize(deser)?),
+            b"$pfilt" => ComItem::PFilter(PFilter::deserialize(deser)?),
             b"$rf" => ComItem::ReceivedFrame(CanFrame::deserialize(deser)?),
             _ => return Err(Error::ParseError),
         };
@@ -35,9 +41,12 @@ impl ComItem {
         }
     }
 
-    pub fn serialize(&self) -> Ser<30> {
-        let mut ser = Ser::<30>::new();
+    pub fn serialize(&self) -> Ser<50> {
+        let mut ser = Ser::<50>::new();
         match self {
+            Self::ClearFilters => {
+                ser.add_slice(b"$clearfilt").unwrap();
+            }
             Self::Echo => {
                 ser.add_slice(b"$echo").unwrap();
             }
@@ -48,6 +57,14 @@ impl ComItem {
             Self::FrameToSend(frame) => {
                 ser.add_slice(b"$fts").unwrap();
                 frame.serialize(&mut ser).unwrap();
+            }
+            Self::NFilter(nfilter) => {
+                ser.add_slice(b"$nfilt").unwrap();
+                nfilter.serialize(&mut ser).unwrap();
+            }
+            Self::PFilter(pfilter) => {
+                ser.add_slice(b"$pfilt").unwrap();
+                pfilter.serialize(&mut ser).unwrap();
             }
             Self::ReceivedFrame(frame) => {
                 ser.add_slice(b"$rf").unwrap();
@@ -93,6 +110,27 @@ mod tests {
 
         let slice = b"$echo\n";
         let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let item = ComItem::deserialize(&mut deser).unwrap();
+        let ser = item.serialize();
+        println!("ComItem {}", str::from_utf8(ser.as_slice()).unwrap());
+        assert_eq!(ser.as_slice(), slice);
+
+        let slice = b"$clearfilt\n";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let item = ComItem::deserialize(&mut deser).unwrap();
+        let ser = item.serialize();
+        println!("ComItem {}", str::from_utf8(ser.as_slice()).unwrap());
+        assert_eq!(ser.as_slice(), slice);
+
+        let slice = b"$nfilt,111_1111_0000\n";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let item = ComItem::deserialize(&mut deser).unwrap();
+        let ser = item.serialize();
+        println!("ComItem {}", str::from_utf8(ser.as_slice()).unwrap());
+        assert_eq!(ser.as_slice(), slice);
+
+        let slice = b"$pfilt,17,1_1111_0000_1111_0000_11*1_000*_1111\n";
+        let mut deser = DeSer::<50>::from_slice(slice).unwrap();
         let item = ComItem::deserialize(&mut deser).unwrap();
         let ser = item.serialize();
         println!("ComItem {}", str::from_utf8(ser.as_slice()).unwrap());

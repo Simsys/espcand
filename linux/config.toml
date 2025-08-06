@@ -2,6 +2,6 @@ ip = "192.168.178.170:1234"
 
 [commands]
 echo = { help = "Echo from server", cmds = ["$echo"] }
-generic = { help = "Receive generic datagrams", cmds = ["$pfilt,0,1xx_xxxx_xxxx"] }
-specific = { help = "Receive specific datagrams", cmds = ["$pfilt,0,0xx_xxxx_xxxx"] }
+generic = { help = "Receive generic datagrams", cmds = ["$pfilt,0,1**_****_****"] }
+specific = { help = "Receive specific datagrams", cmds = ["$pfilt,0,0**_****_****"] }
 clear = { help = "Clear all filters", cmds = ["$clearfilt"] }

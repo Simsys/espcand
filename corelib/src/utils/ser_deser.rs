@@ -24,7 +24,7 @@ impl<const CAP: usize> Ser<CAP> {
 
 impl<const CAP: usize> Serialize for Ser<CAP> {
     fn add_bool(&mut self, b: bool) -> Result<(), Error> {
-        self.buf.push(b as u8).map_err(|_| Error::SerializeError)
+        self.buf.push(b as u8 + b'0').map_err(|_| Error::SerializeError)
     }
 
     fn add_byte(&mut self, b: u8) -> Result<(), Error> {

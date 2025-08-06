@@ -31,6 +31,7 @@ pub fn init() ->
     &'static ComChannel,
     &'static ComChannel,
     &'static ComChannel,
+    &'static ComChannel,
     Receiver<'static, CriticalSectionRawMutex, bool, 1>,
     Sender<'static, CriticalSectionRawMutex, bool, 1>,
 ) {
@@ -91,6 +92,7 @@ pub fn init() ->
     let can_rx_channel = &*mk_static!(ComChannel, ComChannel::new());
     let can_tx_channel = &*mk_static!(ComChannel, ComChannel::new());
     let wifi_rx_channel = &*mk_static!(ComChannel, ComChannel::new());
+    let wifi_tx_channel = &*mk_static!(ComChannel, ComChannel::new());
 
     static SIGNAL_CONN: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
     let signal_conn_rx: Receiver<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.receiver().unwrap();
@@ -104,6 +106,7 @@ pub fn init() ->
         can_rx_channel,
         can_tx_channel,
         wifi_rx_channel,
+        wifi_tx_channel,
         signal_conn_rx,
         signal_conn_tx,
     )
