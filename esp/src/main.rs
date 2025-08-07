@@ -23,7 +23,7 @@ use corelib::ComItem;
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, Either};
 use embassy_time::Instant;
-use embedded_can::{Frame, Id};
+use embedded_can::Frame;
 
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -68,12 +68,8 @@ async fn main(spawner: Spawner) -> ! {
         match select(can_receive, wifi_receive).await {
             Either::First(com_item) => {
                 if let ComItem::ReceivedFrame(frame) = &com_item {
-                    let id = match frame.id() {
-                        Id::Standard(id) => id.as_raw() as u32,
-                        Id::Extended(id) => id.as_raw(),
-                    };
-                    if !nfilters.check(id) {
-                        if pfilters.check(id, Instant::now()) {
+                    if !nfilters.check(frame.id()) {
+                        if pfilters.check(frame.id(), Instant::now()) {
                             wifi_tx_channel.send(com_item).await;
                         }
                     }

@@ -1,4 +1,5 @@
 use embassy_time::Instant;
+use embedded_can::Id;
 use heapless::Vec;
 use crate::{DeSerialize, Error, Serialize};
 
@@ -178,7 +179,19 @@ impl PFilter {
         Ok(Self { extended, duration, ones, zeros, id_times: IdTimes::new() })
     }
 
-    pub fn check(&mut self, id: u32, instant: TInstant) -> bool {
+    pub fn check(&mut self, id: Id, instant: TInstant) -> bool {
+        let id = match id {
+            Id::Extended(id) => if self.extended {
+                id.as_raw()
+            } else {
+                return false
+            }
+            Id::Standard(id) => if self.extended {
+                return false
+            } else {
+                id.as_raw() as u32
+            }
+        };
         if !self.id_times.check_instant(id, instant, self.duration) {
             return false
         }
@@ -217,7 +230,7 @@ impl<const CAP: usize> PFilters<CAP> {
         self.pfilters.push(pfilter).map_err(|_| Error::BufIsFull)
     }
 
-    pub fn check(&mut self, id: u32, instant: Instant) -> bool {
+    pub fn check(&mut self, id: Id, instant: Instant) -> bool {
         let instant = instant.into();
         if self.pfilters.len() == 0 {
             return true
@@ -252,7 +265,19 @@ impl NFilter {
         Ok(Self { extended, ones, zeros })
     }
 
-    pub fn check(&mut self, id: u32) -> bool {
+    pub fn check(&mut self, id: Id) -> bool {
+        let id = match id {
+            Id::Extended(id) => if self.extended {
+                id.as_raw()
+            } else {
+                return false
+            }
+            Id::Standard(id) => if self.extended {
+                return false
+            } else {
+                id.as_raw() as u32
+            }
+        };
         check(id, self.ones, self.zeros, self.extended)
     }
 
@@ -283,7 +308,7 @@ impl<const CAP: usize> NFilters<CAP> {
         self.nfilters.push(nfilter).map_err(|_| Error::BufIsFull)
     }
 
-    pub fn check(&mut self, id: u32) -> bool {
+    pub fn check(&mut self, id: Id) -> bool {
         if self.nfilters.len() == 0 {
             return false
         } else {
@@ -304,10 +329,20 @@ impl<const CAP: usize> NFilters<CAP> {
 
 #[cfg(test)]
 mod tests {
+    use embedded_can::{ExtendedId, StandardId};
+
     use super::*;
     use crate::{Ser, DeSer};
     extern crate std;
     use std::println;
+
+    fn s_id(id: u32) -> Id {
+        Id::Standard(StandardId::new(id as u16).unwrap())
+    }
+
+    fn e_id(id: u32) -> Id {
+        Id::Extended(ExtendedId::new(id).unwrap())
+    }
 
     #[test]
     fn new_pfilter() {
@@ -382,22 +417,22 @@ mod tests {
     #[test]
     fn check_pfilter() {
         let mut filter = PFilter::new(0, b"1*0_0110_0**1").unwrap();
-        assert_eq!(filter.check(0b110_0110_0111, 0.into()), true);
-        assert_eq!(filter.check(0b100_0110_0001, 0.into()), true);
-        assert_eq!(filter.check(0b110_0110_0110, 0.into()), false);
-        assert_eq!(filter.check(0b110_0110_1111, 0.into()), false);
+        assert_eq!(filter.check(s_id(0b110_0110_0111), 0.into()), true);
+        assert_eq!(filter.check(s_id(0b100_0110_0001), 0.into()), true);
+        assert_eq!(filter.check(s_id(0b110_0110_0110), 0.into()), false);
+        assert_eq!(filter.check(s_id(0b110_0110_1111), 0.into()), false);
 
         let mut filter = PFilter::new(1000, b"1*0_0110_0**1").unwrap();
-        assert_eq!(filter.check(0b110_0110_0111, 500.into()), false);
-        assert_eq!(filter.check(0b110_0110_0111, 1000.into()), false);
-        assert_eq!(filter.check(0b110_0110_0111, 1501.into()), true);
+        assert_eq!(filter.check(s_id(0b110_0110_0111), 500.into()), false);
+        assert_eq!(filter.check(s_id(0b110_0110_0111), 1000.into()), false);
+        assert_eq!(filter.check(s_id(0b110_0110_0111), 1501.into()), true);
 
-        assert_eq!(filter.check(0b100_0110_0001, 500.into()), false);
-        assert_eq!(filter.check(0b100_0110_0001, 1000.into()), false);
-        assert_eq!(filter.check(0b100_0110_0001, 1501.into()), true);
+        assert_eq!(filter.check(s_id(0b100_0110_0001), 500.into()), false);
+        assert_eq!(filter.check(s_id(0b100_0110_0001), 1000.into()), false);
+        assert_eq!(filter.check(s_id(0b100_0110_0001), 1501.into()), true);
 
         let mut filter = PFilter::new(0, b"1_0000_1111_0000_1111_0000_1111_0000").unwrap();
-        assert_eq!(filter.check(0b1_0000_1111_0000_1111_0000_1111_0000, 0.into()), true);
+        assert_eq!(filter.check(e_id(0b1_0000_1111_0000_1111_0000_1111_0000), 0.into()), true);
     }
 
     #[test]
@@ -407,27 +442,27 @@ mod tests {
         pfilters.add(filter).unwrap();
         let filter = PFilter::new(0, b"110_0110_0001").unwrap();
         pfilters.add(filter).unwrap();
-        assert_eq!(pfilters.check(0b110_0110_0000, Instant::from_millis(0)), true);
-        assert_eq!(pfilters.check(0b110_0110_0001, Instant::from_millis(0)), true);
-        assert_eq!(pfilters.check(0b110_0110_0011, Instant::from_millis(0)), false);
+        assert_eq!(pfilters.check(s_id(0b110_0110_0000), Instant::from_millis(0)), true);
+        assert_eq!(pfilters.check(s_id(0b110_0110_0001), Instant::from_millis(0)), true);
+        assert_eq!(pfilters.check(s_id(0b110_0110_0011), Instant::from_millis(0)), false);
     }
     
     #[test]
     fn check_nfilter() {
         let mut filter = NFilter::new(b"1*0_0110_0**1").unwrap();
-        assert_eq!(filter.check(0b110_0110_0111), true);
-        assert_eq!(filter.check(0b100_0110_0001), true);
-        assert_eq!(filter.check(0b110_0110_0110), false);
-        assert_eq!(filter.check(0b110_0110_1111), false);
+        assert_eq!(filter.check(s_id(0b110_0110_0111)), true);
+        assert_eq!(filter.check(s_id(0b100_0110_0001)), true);
+        assert_eq!(filter.check(s_id(0b110_0110_0110)), false);
+        assert_eq!(filter.check(s_id(0b110_0110_1111)), false);
 
         let mut filter = NFilter::new(b"1*0_0110_0**1").unwrap();
-        assert_eq!(filter.check(0b110_0110_0111), true);
-        assert_eq!(filter.check(0b100_0110_0001), true);
-        assert_eq!(filter.check(0b110_0110_0111), true);
-        assert_eq!(filter.check(0b100_0110_0001), true);
+        assert_eq!(filter.check(s_id(0b110_0110_0111)), true);
+        assert_eq!(filter.check(s_id(0b100_0110_0001)), true);
+        assert_eq!(filter.check(s_id(0b110_0110_0111)), true);
+        assert_eq!(filter.check(s_id(0b100_0110_0001)), true);
 
         let mut filter = NFilter::new(b"1_0000_1111_0000_1111_0000_1111_0000").unwrap();
-        assert_eq!(filter.check(0b1_0000_1111_0000_1111_0000_1111_0000), true);
+        assert_eq!(filter.check(e_id(0b1_0000_1111_0000_1111_0000_1111_0000)), true);
     }
 
     #[test]
@@ -437,9 +472,9 @@ mod tests {
         nfilters.add(filter).unwrap();
         let filter = NFilter::new(b"110_0110_0001").unwrap();
         nfilters.add(filter).unwrap();
-        assert_eq!(nfilters.check(0b110_0110_0000), true);
-        assert_eq!(nfilters.check(0b110_0110_0001), true);
-        assert_eq!(nfilters.check(0b110_0110_0011), false);
+        assert_eq!(nfilters.check(s_id(0b110_0110_0000)), true);
+        assert_eq!(nfilters.check(s_id(0b110_0110_0001)), true);
+        assert_eq!(nfilters.check(s_id(0b110_0110_0011)), false);
     }
     
     #[test]
