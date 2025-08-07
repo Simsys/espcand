@@ -92,6 +92,14 @@ async fn main(spawner: Spawner) -> ! {
                         Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
                     }
                     ComItem::ReceivedFrame(_) => (), // wifi does not receive frames
+                    ComItem::ShowFilters => {
+                        for nfilter in nfilters.get_vec_ref() {
+                            wifi_tx_channel.send(ComItem::NFilter(nfilter.clone())).await;
+                        }
+                        for pfilter in pfilters.get_vec_ref() {
+                            wifi_tx_channel.send(ComItem::PFilter(pfilter.clone())).await;
+                        }
+                    }
                 }
             }
         };

@@ -1,12 +1,11 @@
 mod can_frame;
 mod error;
-mod filter;
 mod rx_buffer;
 mod ser_deser;
 
 pub use can_frame::*;
 pub use error::*;
-pub use filter::*;
+pub use crate::filter::{NFilter, PFilter};
 pub use rx_buffer::*;
 pub use ser_deser::*;
 
@@ -19,6 +18,7 @@ pub enum ComItem {
     NFilter(NFilter),
     PFilter(PFilter),
     ReceivedFrame(CanFrame),
+    ShowFilters,
 }
 
 impl ComItem {
@@ -32,6 +32,7 @@ impl ComItem {
             b"$nfilt" => ComItem::NFilter(NFilter::deserialize(deser)?),
             b"$pfilt" => ComItem::PFilter(PFilter::deserialize(deser)?),
             b"$rf" => ComItem::ReceivedFrame(CanFrame::deserialize(deser)?),
+            b"$filt?" => ComItem::ShowFilters,
             _ => return Err(Error::ParseError),
         };
         if deser.is_end() {
@@ -44,12 +45,8 @@ impl ComItem {
     pub fn serialize(&self) -> Ser<50> {
         let mut ser = Ser::<50>::new();
         match self {
-            Self::ClearFilters => {
-                ser.add_slice(b"$clearfilt").unwrap();
-            }
-            Self::Echo => {
-                ser.add_slice(b"$echo").unwrap();
-            }
+            Self::ClearFilters => ser.add_slice(b"$clearfilt").unwrap(),
+            Self::Echo => ser.add_slice(b"$echo").unwrap(),
             Self::Error(error) => {
                 ser.add_slice(b"$err").unwrap();
                 error.serialize(&mut ser).unwrap();
@@ -70,6 +67,7 @@ impl ComItem {
                 ser.add_slice(b"$rf").unwrap();
                 frame.serialize(&mut ser).unwrap();
             }
+            Self::ShowFilters => ser.add_slice(b"$filt?").unwrap(),
         }
         ser.add_byte(b'\n').unwrap();
         ser
