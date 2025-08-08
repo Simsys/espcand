@@ -13,10 +13,7 @@ use esp_hal::{
     timer::timg::TimerGroup,
     twai::{self, filter::SingleStandardFilter, TwaiMode, Twai},
 };
-use esp_radio::{
-    EspRadioController,
-    wifi::{WifiController, WifiDevice},
-};
+use esp_radio::{Controller, wifi::{WifiController, WifiDevice}};
 
 use corelib::*;
 
@@ -46,8 +43,9 @@ pub fn init() ->
     esp_radio_preempt_baremetal::init(timg0.timer0);
 
     // create wifi interface
-    let esp_wifi_ctrl = &*mk_static!(EspRadioController<'static>, esp_radio::init().unwrap());
-    let (controller, interfaces) = esp_radio::wifi::new(&esp_wifi_ctrl, peripherals.WIFI).unwrap();
+    let esp_radio_ctrl = &*mk_static!(Controller, esp_radio::init().unwrap());
+    let (controller, interfaces) =
+        esp_radio::wifi::new(&esp_radio_ctrl, peripherals.WIFI).unwrap();
     let wifi_interface = interfaces.sta;
 
     // get timer for embassy

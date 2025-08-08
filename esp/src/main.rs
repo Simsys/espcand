@@ -1,16 +1,3 @@
-//! Embassy DHCP Example
-//!
-//!
-//! Set SSID and PASSWORD env variable before running this example.
-//!
-//! This gets an ip address via DHCP then performs an HTTP get request to some
-//! "random" server
-//!
-//! Because of the huge task-arena size configured this won't work on ESP32-S2
-
-//% FEATURES: embassy esp-radio esp-radio/wifi esp-hal/unstable
-//% CHIPS: esp32 esp32s2 esp32s3 esp32c2 esp32c3 esp32c6
-
 #![no_std]
 #![no_main]
 mod macros;

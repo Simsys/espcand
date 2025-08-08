@@ -2,3 +2,4 @@
 	path = esp-hal
 	url = https://github.com/esp-rs/esp-hal
 	branch = main
+	rev = e579b1b1be123f1d83cacab9c2e62f954bfe144e
