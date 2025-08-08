@@ -106,7 +106,7 @@ There are positive and negative filters for filtering. If a negative filter matc
 
 In addition to the match pattern, positive filters also have the option of specifying a minimum interval between datagrams in milliseconds. This allows the datagrams to be throttled to the frequency required for the application, which in turn reduces the data stream. A minimum interval of 0 milliseconds means that no time filtering is performed. The data streams defined by positive filters are added together.
 
-Note: Since filters can match multiple IDs, a positive filter must remember when each individual ID was last received. A positive filter can remember the reception times for up to 16 IDs. Any datagrams beyond this are ignored. 
+Note: Since filters can match multiple IDs, a positive filter must remember when each individual ID was last received. A positive filter can remember the reception times for up to 16 IDs. Any datagrams beyond this are sorted out - they will not apear on the TCP stream. 
 
 In the match pattern, each bit is addressed and defined as to whether it must be a 1 or a 0, or whether any state is accepted. Such a pattern must be either exactly 11 bits (standard ID) or 29 bits (extended ID) long. Underscores can be inserted for better readability.
 

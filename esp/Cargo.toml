@@ -31,7 +31,6 @@ esp-alloc           = { path = "../esp-hal/esp-alloc" }
 esp-backtrace       = { path = "../esp-hal/esp-backtrace", features = [
     "esp32c3",
     "panic-handler",
-    "exception-handler",
     "println",
 ] }
 esp-bootloader-esp-idf = { path = "../esp-hal/esp-bootloader-esp-idf" }

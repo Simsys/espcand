@@ -21,8 +21,8 @@ pub fn interpret(mut input: String, config: &Config) -> Vec<(bool, String)> {
             }
             _ => {
                 if input.len() > 0 {
-                    input.push('\n');
-                    r.push((true, input));
+                    let cmd = format!("${}\n", input.as_str());
+                    r.push((true, cmd));
                 }
             } 
         }
