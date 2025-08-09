@@ -9,4 +9,3 @@ macro_rules! mk_static {
         x
     }};
 }
-

@@ -3,24 +3,15 @@ mod input_widget;
 mod interpret;
 mod list_widget;
 
-use std::{
-    time::Duration,
-};
+use std::time::Duration;
 
 use color_eyre::Result;
 use ratatui::{
+    DefaultTerminal, Frame,
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, poll},
     layout::{Constraint, Layout},
-    DefaultTerminal,
-    Frame,
 };
-use smol::{
-    future::FutureExt, 
-    io::AsyncWriteExt, 
-    stream::StreamExt, 
-    Timer,
-    net::TcpStream,
-};
+use smol::{Timer, future::FutureExt, io::AsyncWriteExt, net::TcpStream, stream::StreamExt};
 
 use config::Config;
 use input_widget::InputWidget;
@@ -34,7 +25,6 @@ fn main() -> Result<()> {
     ratatui::restore();
     app_result
 }
-
 
 #[derive(Debug)]
 struct App {
@@ -53,7 +43,7 @@ impl App {
     fn new() -> Self {
         Self {
             input_widget: InputWidget::new(),
-            widgets: ListWidgets::new(),
+            widgets: ListWidgets::default(),
             should_exit: false,
             input: String::new(),
         }
@@ -67,10 +57,9 @@ impl App {
 
     /// Run the app until the user exits.
     fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
-        let toml_str = std::fs::read_to_string("config.toml")
-            .expect("Failed to read config.toml file");
-        let config: Config = toml::from_str(&toml_str)
-            .expect("Failed to deserialize Cargo.toml");
+        let toml_str =
+            std::fs::read_to_string("config.toml").expect("Failed to read config.toml file");
+        let config: Config = toml::from_str(&toml_str).expect("Failed to deserialize Cargo.toml");
 
         smol::block_on(async {
             let mut stream = TcpStream::connect(&config.ip).await?;
@@ -91,11 +80,10 @@ impl App {
                     if send_to_stream {
                         let show = format!("<= {}", cmd.as_str());
                         self.widgets.cmd().add_item(show);
-                        stream.write_all(cmd.as_bytes()).await?;         
+                        stream.write_all(cmd.as_bytes()).await?;
                     } else {
                         self.widgets.cmd().add_item(cmd);
                     }
-
                 }
                 terminal.draw(|frame| self.render(frame))?;
             }
@@ -111,10 +99,12 @@ impl App {
                     self.should_exit = false;
                     match key.code {
                         KeyCode::Enter => self.input = self.input_widget.get_message(),
-                        KeyCode::Char('c') => if key.modifiers == KeyModifiers::CONTROL {
-                            self.should_exit = true;
-                        } else {
-                            self.input_widget.handle_key_input(key.code);
+                        KeyCode::Char('c') => {
+                            if key.modifiers == KeyModifiers::CONTROL {
+                                self.should_exit = true;
+                            } else {
+                                self.input_widget.handle_key_input(key.code);
+                            }
                         }
                         _ => self.input_widget.handle_key_input(key.code),
                     };
@@ -125,14 +115,10 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) {
-        let outer_layout = Layout::horizontal([
-            Constraint::Length(40), 
-            Constraint::Fill(1)]
-        ).split(frame.area());
-        let right_layout = Layout::vertical([
-            Constraint::Fill(1),
-            Constraint::Length(3)
-        ]).split(outer_layout[1]);
+        let outer_layout =
+            Layout::horizontal([Constraint::Length(40), Constraint::Fill(1)]).split(frame.area());
+        let right_layout =
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).split(outer_layout[1]);
 
         let can_rf_area = outer_layout[0];
         let command_area = right_layout[0];

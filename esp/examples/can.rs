@@ -30,7 +30,7 @@
 use esp_backtrace as _;
 use esp_hal::{
     main,
-    twai::{self, filter::SingleStandardFilter, StandardId, TwaiMode, EspTwaiFrame},
+    twai::{self, filter::SingleStandardFilter, EspTwaiFrame, StandardId, TwaiMode},
 };
 use esp_println::println;
 use nb::block;

@@ -17,14 +17,14 @@ pub fn interpret(input: String, config: &Config) -> Vec<(bool, String)> {
                 for (name, cmd) in &config.commands {
                     let help_str = format!("  {:<10}{}", *name, cmd.help);
                     r.push((false, help_str));
-                } 
+                }
             }
             _ => {
-                if input.len() > 0 {
+                if input.is_empty() {
                     let cmd = format!("${}\n", input.as_str());
                     r.push((true, cmd));
                 }
-            } 
+            }
         }
     }
     r

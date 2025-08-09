@@ -1,31 +1,34 @@
-use embassy_net::{Runner, StackResources, Stack};
+use embassy_net::{Runner, Stack, StackResources};
 use embassy_sync::{
-        blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
-        channel::Channel, 
-        watch::{Watch, Sender, Receiver},
+    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
+    channel::Channel,
+    watch::{Receiver, Sender, Watch},
 };
 
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
-    Async,
-    clock::CpuClock, 
-    rng::Rng, 
+    clock::CpuClock,
+    rng::Rng,
     timer::timg::TimerGroup,
-    twai::{self, filter::SingleStandardFilter, TwaiMode, Twai},
+    twai::{self, filter::SingleStandardFilter, Twai, TwaiMode},
+    Async,
 };
-use esp_radio::{Controller, wifi::{WifiController, WifiDevice}};
+use esp_radio::{
+    wifi::{WifiController, WifiDevice},
+    Controller,
+};
 
 use corelib::*;
 
 pub type ComChannel = Channel<NoopRawMutex, ComItem, 128>;
 const CAN_BAUDRATE: &str = env!("CAN_BAUDRATE");
 
-pub fn init() ->
-(
+#[allow(clippy::type_complexity)]
+pub fn init() -> (
     Runner<'static, WifiDevice<'static>>,
     Stack<'static>,
-    WifiController<'static>, 
+    WifiController<'static>,
     Twai<'static, Async>,
     &'static ComChannel,
     &'static ComChannel,
@@ -46,8 +49,7 @@ pub fn init() ->
 
     // create wifi interface
     let esp_radio_ctrl = &*mk_static!(Controller, esp_radio::init().unwrap());
-    let (controller, interfaces) =
-        esp_radio::wifi::new(&esp_radio_ctrl, peripherals.WIFI).unwrap();
+    let (controller, interfaces) = esp_radio::wifi::new(esp_radio_ctrl, peripherals.WIFI).unwrap();
     let wifi_interface = interfaces.sta;
 
     // get timer for embassy
@@ -76,14 +78,15 @@ pub fn init() ->
         "B500K" => twai::BaudRate::B500K,
         _ => twai::BaudRate::B1000K,
     };
-    
+
     let mut twai_config = twai::TwaiConfiguration::new(
         peripherals.TWAI0,
         rx_pin,
         tx_pin,
         baud_rate,
         TwaiMode::Normal,
-    ).into_async();
+    )
+    .into_async();
     twai_config.set_filter(
         const { SingleStandardFilter::new(b"xxxxxxxxxxx", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
     );
@@ -95,9 +98,10 @@ pub fn init() ->
     let wifi_tx_channel = &*mk_static!(ComChannel, ComChannel::new());
 
     static SIGNAL_CONN: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
-    let signal_conn_rx: Receiver<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.receiver().unwrap();
+    let signal_conn_rx: Receiver<'static, CriticalSectionRawMutex, bool, 1> =
+        SIGNAL_CONN.receiver().unwrap();
     let signal_conn_tx: Sender<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.sender();
-    
+
     (
         runner,
         stack,
@@ -111,5 +115,3 @@ pub fn init() ->
         signal_conn_tx,
     )
 }
-
-

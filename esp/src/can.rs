@@ -1,25 +1,23 @@
 use embedded_can::Frame;
 
 use embassy_futures::select::{select3, Either3};
-use embassy_sync::{
-        blocking_mutex::raw::CriticalSectionRawMutex, 
-        watch::Receiver,
-};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Receiver};
 
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal:: {
-    twai::{EspTwaiFrame, Twai}, Async
+use esp_hal::{
+    twai::{EspTwaiFrame, Twai},
+    Async,
 };
 use esp_println::println;
 use log::info;
 
-use corelib::*;
 use crate::ComChannel;
+use corelib::*;
 
 #[embassy_executor::task]
 pub async fn comm(
-    mut twai: Twai<'static, Async>, 
+    mut twai: Twai<'static, Async>,
     wifi_tx_channel: &'static ComChannel,
     can_tx_channel: &'static ComChannel,
     mut connection: Receiver<'static, CriticalSectionRawMutex, bool, 1>,
@@ -27,15 +25,9 @@ pub async fn comm(
     info!("start can receive");
     let mut is_connected = false;
     loop {
-        let conn = async {
-            connection.changed().await
-        };
-        let rx_frame = async {
-            twai.receive_async().await
-        };
-        let tx_frame = async {
-            can_tx_channel.receive().await
-        };
+        let conn = async { connection.changed().await };
+        let rx_frame = async { twai.receive_async().await };
+        let tx_frame = async { can_tx_channel.receive().await };
 
         match select3(conn, rx_frame, tx_frame).await {
             Either3::First(connected) => {
@@ -73,4 +65,3 @@ pub async fn comm(
         };
     }
 }
-

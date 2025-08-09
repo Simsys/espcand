@@ -1,4 +1,4 @@
-use crate::{Error, DeSerialize};
+use crate::{DeSerialize, Error};
 
 pub struct RxBuffer<const CAP: usize> {
     buf: [u8; CAP],
@@ -6,11 +6,17 @@ pub struct RxBuffer<const CAP: usize> {
     tail: usize,
 }
 
-impl<const CAP: usize> RxBuffer<CAP> {
-    pub const fn new() -> Self {
-        Self { buf: [0; CAP], head: 0, tail: 0 }
+impl<const CAP: usize> Default for RxBuffer<CAP> {
+    fn default() -> Self {
+        Self {
+            buf: [0; CAP],
+            head: 0,
+            tail: 0,
+        }
     }
+}
 
+impl<const CAP: usize> RxBuffer<CAP> {
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         self.head = 0;
         self.tail = 0;
@@ -38,7 +44,7 @@ impl<const CAP: usize> RxBuffer<CAP> {
                     Ok(()) => (),
                     Err(_) => {
                         self.tail = tail;
-                        return Err(Error::BufIsFull)
+                        return Err(Error::BufIsFull);
                     }
                 }
             }
@@ -48,7 +54,7 @@ impl<const CAP: usize> RxBuffer<CAP> {
             }
             if b == b'\n' {
                 self.tail = tail;
-                return Ok(())
+                return Ok(());
             }
         }
         Err(Error::EndNotFound)

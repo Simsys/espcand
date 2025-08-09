@@ -15,16 +15,16 @@ use embedded_can::Frame;
 use esp_alloc as _;
 use esp_backtrace as _;
 
-use init::*;
 use corelib::*;
+use init::*;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
     let (
-        runner, 
-        stack, 
+        runner,
+        stack,
         controller,
         twai,
         can_rx_channel,
@@ -37,28 +37,36 @@ async fn main(spawner: Spawner) -> ! {
 
     spawner.spawn(wifi::connection(controller)).ok();
     spawner.spawn(wifi::net_task(runner)).ok();
-    spawner.spawn(wifi::comm(stack, wifi_rx_channel, wifi_tx_channel, signal_conn_tx)).ok();
-    spawner.spawn(can::comm(twai, can_rx_channel, can_tx_channel, signal_conn_rx)).ok();
+    spawner
+        .spawn(wifi::comm(
+            stack,
+            wifi_rx_channel,
+            wifi_tx_channel,
+            signal_conn_tx,
+        ))
+        .ok();
+    spawner
+        .spawn(can::comm(
+            twai,
+            can_rx_channel,
+            can_tx_channel,
+            signal_conn_rx,
+        ))
+        .ok();
 
-    let mut pfilters: PFilters<10> = PFilters::new();
-    let mut nfilters: NFilters<10> = NFilters::new();
+    let mut pfilters: PFilters<10> = PFilters::default();
+    let mut nfilters: NFilters<10> = NFilters::default();
 
     loop {
-        let can_receive = async {
-            can_rx_channel.receive().await
-        };
-        let wifi_receive = async {
-            wifi_rx_channel.receive().await
-        };
+        let can_receive = async { can_rx_channel.receive().await };
+        let wifi_receive = async { wifi_rx_channel.receive().await };
 
-        // Wait for both and handle first event 
+        // Wait for both and handle first event
         match select(can_receive, wifi_receive).await {
             Either::First(com_item) => {
                 if let ComItem::ReceivedFrame(frame) = &com_item {
-                    if !nfilters.check(frame.id()) {
-                        if pfilters.check(frame.id(), Instant::now()) {
-                            wifi_tx_channel.send(com_item).await;
-                        }
+                    if !nfilters.check(frame.id()) && pfilters.check(frame.id(), Instant::now()) {
+                        wifi_tx_channel.send(com_item).await;
                     }
                 }
             }
@@ -73,18 +81,20 @@ async fn main(spawner: Spawner) -> ! {
                     ComItem::NFilter(nfilter) => match nfilters.add(nfilter) {
                         Ok(()) => (),
                         Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
-                    }
+                    },
                     ComItem::PFilter(pfilter) => match pfilters.add(pfilter) {
                         Ok(()) => (),
                         Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
-                    }
+                    },
                     ComItem::ReceivedFrame(_) => (), // wifi does not receive frames
                     ComItem::ShowFilters => {
                         for nfilter in nfilters.get_vec_ref() {
-                            wifi_tx_channel.send(ComItem::NFilter(nfilter.clone())).await;
+                            wifi_tx_channel.send(ComItem::NFilter(*nfilter)).await;
                         }
                         for pfilter in pfilters.get_vec_ref() {
-                            wifi_tx_channel.send(ComItem::PFilter(pfilter.as_pre_pfilter())).await;
+                            wifi_tx_channel
+                                .send(ComItem::PFilter(pfilter.as_pre_pfilter()))
+                                .await;
                         }
                     }
                 }
@@ -92,4 +102,3 @@ async fn main(spawner: Spawner) -> ! {
         };
     }
 }
-

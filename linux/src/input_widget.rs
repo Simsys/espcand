@@ -1,10 +1,9 @@
 use ratatui::{
+    Frame,
     crossterm::event::KeyCode,
     layout::{Position, Rect},
     widgets::{Block, Paragraph},
-    Frame,
 };
-
 
 #[derive(Debug)]
 pub struct InputWidget {
@@ -14,7 +13,10 @@ pub struct InputWidget {
 
 impl InputWidget {
     pub const fn new() -> Self {
-        Self { input: String::new(), character_index: 0 }
+        Self {
+            input: String::new(),
+            character_index: 0,
+        }
     }
 
     pub fn handle_key_input(&mut self, key_code: KeyCode) {
@@ -28,13 +30,13 @@ impl InputWidget {
     }
 
     pub fn render(&mut self, frame: &mut Frame, area: &Rect) {
-        let input = Paragraph::new(self.input.as_str())
-            .block(Block::bordered().title(" User Input "));
+        let input =
+            Paragraph::new(self.input.as_str()).block(Block::bordered().title(" User Input "));
         frame.render_widget(input, *area);
         frame.set_cursor_position(Position::new(
-                area.x + self.character_index as u16 + 1,
-                area.y + 1,
-            ));
+            area.x + self.character_index as u16 + 1,
+            area.y + 1,
+        ));
     }
 
     pub fn get_message(&mut self) -> String {
@@ -101,7 +103,4 @@ impl InputWidget {
     const fn reset_cursor(&mut self) {
         self.character_index = 0;
     }
-
-
-
 }

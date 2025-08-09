@@ -10,8 +10,8 @@ use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
-    timer::timg::TimerGroup,
     gpio::{Level, Output, OutputConfig},
+    timer::timg::TimerGroup,
 };
 use esp_println::println;
 use log::info;
@@ -32,15 +32,14 @@ async fn run(mut led: Output<'static>) {
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
-    esp_println::logger::init_logger_from_env();    
+    esp_println::logger::init_logger_from_env();
 
     info!("Init!");
     println!("Test");
-   
+
     let led: Output<'_> = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_hal_embassy::init(timg0.timer0);
-
 
     spawner.spawn(run(led)).ok();
 

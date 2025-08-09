@@ -3,9 +3,9 @@ mod error;
 mod rx_buffer;
 mod ser_deser;
 
+pub use crate::filter::{NFilter, PrePFilter};
 pub use can_frame::*;
 pub use error::*;
-pub use crate::filter::{NFilter, PrePFilter};
 pub use rx_buffer::*;
 pub use ser_deser::*;
 
@@ -43,7 +43,7 @@ impl ComItem {
     }
 
     pub fn serialize(&self) -> Ser<50> {
-        let mut ser = Ser::<50>::new();
+        let mut ser = Ser::<50>::default();
         match self {
             Self::ClearFilters => ser.add_slice(b"$clearfilt").unwrap(),
             Self::Echo => ser.add_slice(b"$echo").unwrap(),
@@ -134,5 +134,4 @@ mod tests {
         println!("ComItem {}", str::from_utf8(ser.as_slice()).unwrap());
         assert_eq!(ser.as_slice(), slice);
     }
-
 }

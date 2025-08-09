@@ -10,9 +10,9 @@ use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
-    Async,
     timer::timg::TimerGroup,
-    twai::{self, filter::SingleStandardFilter, TwaiMode, Twai},
+    twai::{self, filter::SingleStandardFilter, Twai, TwaiMode},
+    Async,
 };
 use esp_println::println;
 use log::info;
@@ -36,10 +36,10 @@ async fn run(mut twai: Twai<'static, Async>) {
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
-    esp_println::logger::init_logger_from_env();    
+    esp_println::logger::init_logger_from_env();
 
     info!("Init can async!");
-   
+
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
 
@@ -51,7 +51,8 @@ async fn main(spawner: Spawner) -> ! {
         tx_pin,
         TWAI_BAUDRATE,
         TwaiMode::Normal,
-    ).into_async();
+    )
+    .into_async();
     twai_config.set_filter(
         const { SingleStandardFilter::new(b"01010000000", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
     );

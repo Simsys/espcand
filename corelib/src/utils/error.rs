@@ -54,7 +54,6 @@ impl Error {
         }
     }
 
-
     pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
         let error_slice = &deser.get_slice()?[1..];
         Ok(Error::from(error_slice))

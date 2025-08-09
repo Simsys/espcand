@@ -1,11 +1,11 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    widgets::{Block, List, ListItem},
     style::Stylize,
+    widgets::{Block, List, ListItem},
 };
-use std::collections::VecDeque;
 use smol::io::{AsyncWrite, Error};
+use std::collections::VecDeque;
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -19,8 +19,11 @@ pub struct ListWidget<const CAP: usize> {
 
 impl<const CAP: usize> ListWidget<CAP> {
     pub fn new(border_title: &'static str) -> Self {
-        let content = VecDeque::<String>::with_capacity(CAP); 
-        Self { content, border_title }
+        let content = VecDeque::<String>::with_capacity(CAP);
+        Self {
+            content,
+            border_title,
+        }
     }
 
     pub fn render(&mut self, frame: &mut Frame, area: &Rect) {
@@ -30,11 +33,12 @@ impl<const CAP: usize> ListWidget<CAP> {
         } else {
             0
         };
-        let content: Vec<ListItem> = self.content
+        let content: Vec<ListItem> = self
+            .content
             .range(start_idx..)
             .map(|s| {
                 let mut item = ListItem::new(s.clone());
-                if s.as_bytes().len() >= 3 {
+                if s.len() >= 3 {
                     if &s.as_bytes()[..3] == b"<= " {
                         item = item.green();
                     }
@@ -45,10 +49,8 @@ impl<const CAP: usize> ListWidget<CAP> {
                         item = item.blue();
                     }
                 }
-                if s.as_bytes().len() >= 7 {
-                    if &s.as_bytes()[..7] == b"=> $err" {
-                        item = item.red();
-                    }
+                if s.len() >= 7 && &s.as_bytes()[..7] == b"=> $err" {
+                    item = item.red();
                 }
                 item
             })
@@ -66,19 +68,21 @@ impl<const CAP: usize> ListWidget<CAP> {
 }
 
 #[derive(Debug)]
-pub struct ListWidgets<const CAP:usize> {
+pub struct ListWidgets<const CAP: usize> {
     can_widget: ListWidget<CAP>,
     cmd_widget: ListWidget<CAP>,
 }
 
-impl<const CAP:usize> ListWidgets<CAP> {
-    pub fn new() -> Self {
+impl<const CAP: usize> Default for ListWidgets<CAP> {
+    fn default() -> Self {
         Self {
             can_widget: ListWidget::new(" Received CAN Messages "),
             cmd_widget: ListWidget::new(" Commands and Messages "),
         }
     }
+}
 
+impl<const CAP: usize> ListWidgets<CAP> {
     pub fn can(&mut self) -> &mut ListWidget<CAP> {
         &mut self.can_widget
     }
@@ -93,19 +97,19 @@ impl<const CAP:usize> ListWidgets<CAP> {
     }
 }
 
-impl<const CAP:usize> AsyncWrite for &mut ListWidgets<CAP> {
+impl<const CAP: usize> AsyncWrite for &mut ListWidgets<CAP> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<Result<usize, Error>> {        
+    ) -> Poll<Result<usize, Error>> {
         let n = buf.len();
         let mut s = String::new();
         for c in buf {
             if *c != b'\n' {
                 if let Some(ch) = char::from_u32(*c as u32) {
                     s.push(ch);
-                } 
+                }
             } else {
                 if s.len() >= 3 && &s.as_str()[..3] == "$rf" {
                     self.can_widget.add_item(s.clone());
@@ -116,20 +120,14 @@ impl<const CAP:usize> AsyncWrite for &mut ListWidgets<CAP> {
                 s.clear();
             }
         }
-        Poll::Ready(Ok(n))    
-    }
-    
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Error>> {
-        Poll::Ready(Ok(()))    
+        Poll::Ready(Ok(n))
     }
 
-    fn poll_close(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Error>> {
-        Poll::Ready(Ok(()))    
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+        Poll::Ready(Ok(()))
     }
 }

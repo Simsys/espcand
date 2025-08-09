@@ -4,7 +4,10 @@ use core::fmt::{Display, Formatter};
 
 use embedded_can::{ExtendedId, Frame, Id, StandardId};
 use heapless::Vec;
-use modular_bitfield::{bitfield, specifiers::{B4, B2}};
+use modular_bitfield::{
+    bitfield,
+    specifiers::{B2, B4},
+};
 
 use crate::{DeSerialize, Error, Serialize};
 
@@ -29,7 +32,6 @@ pub struct CanFrame {
 }
 
 impl embedded_can::Frame for CanFrame {
-
     fn new(id: impl Into<Id>, data: &[u8]) -> Option<Self> {
         let id: Id = id.into();
         let (id, extended) = match id {
@@ -45,7 +47,7 @@ impl embedded_can::Frame for CanFrame {
                 .with_remote(false)
                 .with_dlc(l as u8);
             let mut mydata = [0_u8; 8];
-            mydata[..l].copy_from_slice(&data); 
+            mydata[..l].copy_from_slice(data);
 
             Some(CanFrame {
                 id,
@@ -69,11 +71,7 @@ impl embedded_can::Frame for CanFrame {
                 .with_remote(true)
                 .with_dlc(dlc as u8);
             let data = [0_u8; 8];
-            Some(CanFrame {
-                id,
-                info,
-                data,
-            })
+            Some(CanFrame { id, info, data })
         }
     }
 
@@ -108,8 +106,7 @@ impl CanFrame {
             Id::Standard(id) => (id.as_raw() as u32, false),
             Id::Extended(id) => (id.as_raw(), true),
         };
-        let mut info = Info::new()
-            .with_extended(extended);
+        let mut info = Info::new().with_extended(extended);
         let mut data = [0_u8; 8];
 
         if frame.is_remote_frame() {
@@ -121,22 +118,16 @@ impl CanFrame {
             info.set_dlc(l as u8);
             data[..l].copy_from_slice(frame.data());
         }
-        CanFrame {
-            id,
-            info,
-            data
-        }
+        CanFrame { id, info, data }
     }
 
     pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
         let id = deser.get_u32_hex()?;
-        let info = Info::from_bytes([deser.get_u32_hex()? as u8, ]);
+        let info = Info::from_bytes([deser.get_u32_hex()? as u8]);
 
         let vec = deser.get_slice_hex()?;
-        if !info.remote() {
-            if vec.len() != info.dlc() as usize {
-                return Err(Error::ParseError)
-            }
+        if !info.remote() && vec.len() != info.dlc() as usize {
+            return Err(Error::ParseError);
         }
         let mut data = [0_u8; 8];
         data[..vec.len()].copy_from_slice(&vec);
@@ -160,17 +151,16 @@ impl CanFrame {
 
 impl Display for CanFrame {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let mut ser = crate::Ser::<30>::new();
+        let mut ser = crate::Ser::<30>::default();
         let _ = self.serialize(&mut ser);
         let _ = write!(f, "CanFrame{}", str::from_utf8(ser.as_slice()).unwrap());
         Ok(())
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{Ser, DeSer};
+    use crate::{DeSer, Ser};
 
     use super::*;
 
@@ -182,22 +172,21 @@ mod tests {
         let slice = b",12a,3,1a2b3c,";
         let mut deser = DeSer::<40>::from_slice(slice).unwrap();
         let frame = CanFrame::deserialize(&mut deser).unwrap();
-        let mut ser = Ser::<40>::new();
+        let mut ser = Ser::<40>::default();
         frame.serialize(&mut ser).unwrap();
         println!("frame {}", str::from_utf8(ser.as_slice()).unwrap());
-        assert_eq!(ser.as_slice(), &slice[..slice.len()-1]);
+        assert_eq!(ser.as_slice(), &slice[..slice.len() - 1]);
 
         let slice = b",12a4,88,1a2b3c4d5e6f7081,";
         let mut deser = DeSer::<40>::from_slice(slice).unwrap();
         let frame = CanFrame::deserialize(&mut deser).unwrap();
-        let mut ser = Ser::<40>::new();
+        let mut ser = Ser::<40>::default();
         frame.serialize(&mut ser).unwrap();
         println!("frame {}", str::from_utf8(ser.as_slice()).unwrap());
-        assert_eq!(ser.as_slice(), &slice[..slice.len()-1]);
+        assert_eq!(ser.as_slice(), &slice[..slice.len() - 1]);
 
         let slice = b",12a,2,1a2b3c,";
         let mut deser = DeSer::<40>::from_slice(slice).unwrap();
         assert_eq!(CanFrame::deserialize(&mut deser), Err(Error::ParseError));
     }
-
 }

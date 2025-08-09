@@ -1,23 +1,20 @@
-
 use embassy_futures::select::{select, Either};
 use embassy_net::{tcp::TcpSocket, Runner, Stack};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Sender};
 use embassy_time::{Duration, Timer};
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    watch::Sender,
-};
 
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_println::println;
-use esp_radio::wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState};
+use esp_radio::wifi::{
+    ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState,
+};
 
 use embedded_io_async::Write;
 use log::{info, warn};
 
 use crate::ComChannel;
-use corelib::{ComItem, DeSer, Error, RxBuffer, Serialize}; 
-
+use corelib::{ComItem, DeSer, Error, RxBuffer, Serialize};
 
 const SSID: &str = env!("SSID");
 const PASSWORD: &str = env!("PASSWORD");
@@ -27,11 +24,11 @@ pub async fn comm(
     stack: Stack<'static>,
     wifi_rx_channel: &'static ComChannel,
     wifi_tx_channel: &'static ComChannel,
-    set_connection: Sender<'static, CriticalSectionRawMutex, bool, 1>
+    set_connection: Sender<'static, CriticalSectionRawMutex, bool, 1>,
 ) {
     let rx_buffer = mk_static!([u8; 4096], [0; 4096]);
     let tx_buffer = mk_static!([u8; 4096], [0; 4096]);
-    let mut rxbuf = RxBuffer::<2048>::new();
+    let mut rxbuf = RxBuffer::<2048>::default();
     //let mut txbuf = [0_u8; 4096];
     set_connection.send(false);
 
@@ -57,7 +54,7 @@ pub async fn comm(
     loop {
         info!("Listening on TCP:1234...");
         if let Err(e) = socket.accept(1234).await {
-            warn!("accept error: {:?}", e);
+            warn!("accept error: {e:?}");
             continue;
         }
         set_connection.send(true);
@@ -71,12 +68,8 @@ pub async fn comm(
                 break;
             }
 
-            match socket_write_read(
-                &mut socket, 
-                wifi_rx_channel, 
-                wifi_tx_channel,
-                &mut rxbuf,
-            ).await {
+            match socket_write_read(&mut socket, wifi_rx_channel, wifi_tx_channel, &mut rxbuf).await
+            {
                 Ok(()) => (),
                 Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
             }
@@ -84,24 +77,16 @@ pub async fn comm(
     }
 }
 
-
-async fn socket_write_read<'a>(
-    socket: &'a mut TcpSocket<'static>, 
+async fn socket_write_read(
+    socket: &mut TcpSocket<'static>,
     wifi_rx_channel: &'static ComChannel,
     wifi_tx_channel: &'static ComChannel,
     rxbuf: &mut RxBuffer<2048>,
-) -> Result <(), Error> {
-    let socket_write = async {
-        wifi_tx_channel.receive().await
-    };
-    let socket_read = async {
-        match socket.read(rxbuf.as_mut_slice()).await {
-            Ok(n) => n,
-            Err(_) => 0,
-        }
-    };
+) -> Result<(), Error> {
+    let socket_write = async { wifi_tx_channel.receive().await };
+    let socket_read = async { (socket.read(rxbuf.as_mut_slice()).await).unwrap_or_default() };
 
-    // Wait for both and handle first event 
+    // Wait for both and handle first event
     match select(socket_write, socket_read).await {
         Either::First(com_item) => {
             let ser = com_item.serialize();
@@ -111,17 +96,15 @@ async fn socket_write_read<'a>(
             };
         }
         Either::Second(n) => {
-            rxbuf.set_head(n);            
+            rxbuf.set_head(n);
             loop {
-                let mut de_ser = DeSer::<50>::new();
+                let mut de_ser = DeSer::<50>::default();
                 match rxbuf.read(&mut de_ser) {
                     Ok(()) => (),
-                    Err(e) => {
-                        match e {
-                            Error::BufIsEmpty => return Ok(()),
-                            _ => return Err(e),
-                        }
-                    }
+                    Err(e) => match e {
+                        Error::BufIsEmpty => return Ok(()),
+                        _ => return Err(e),
+                    },
                 }
                 let item = ComItem::deserialize(&mut de_ser)?;
                 wifi_rx_channel.send(item).await;
@@ -131,21 +114,23 @@ async fn socket_write_read<'a>(
     Ok(())
 }
 
-
-
 #[embassy_executor::task]
 pub async fn connection(mut controller: WifiController<'static>) {
     println!("start connection task");
     println!("Device capabilities: {:?}", controller.capabilities());
     loop {
-        match esp_radio::wifi::wifi_state() {
+        if esp_radio::wifi::wifi_state() == WifiState::StaConnected {
+            controller.wait_for_event(WifiEvent::StaDisconnected).await;
+            Timer::after(Duration::from_millis(5000)).await
+        }
+        /*match esp_radio::wifi::wifi_state() {
             WifiState::StaConnected => {
                 // wait until we're no longer connected
                 controller.wait_for_event(WifiEvent::StaDisconnected).await;
                 Timer::after(Duration::from_millis(5000)).await
             }
             _ => {}
-        }
+        }*/
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.into(),

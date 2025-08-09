@@ -14,20 +14,19 @@
 #![no_std]
 #![no_main]
 
-use esp_println::println;
 use core::net::Ipv4Addr;
+use esp_println::println;
 
 use embassy_executor::Spawner;
-use embassy_net::{Runner, StackResources, tcp::TcpSocket};
+use embassy_net::{tcp::TcpSocket, Runner, StackResources};
 use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, rng::Rng, timer::timg::TimerGroup};
 use esp_radio::{
-    Controller,
     wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
+    Controller,
 };
-
 
 esp_bootloader_esp_idf::esp_app_desc!();
 

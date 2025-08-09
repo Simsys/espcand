@@ -12,5 +12,4 @@ fn main() -> ! {
         };
         print!("{}", str::from_utf8(&buf[..n]).unwrap());
     }
-
 } // the stream is closed here
