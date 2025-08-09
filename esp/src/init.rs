@@ -1,6 +1,7 @@
 use embassy_net::{Runner, StackResources, Stack};
 use embassy_sync::{
-        blocking_mutex::raw::CriticalSectionRawMutex, 
+        blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
+        channel::Channel, 
         watch::{Watch, Sender, Receiver},
 };
 
@@ -17,6 +18,7 @@ use esp_radio::{Controller, wifi::{WifiController, WifiDevice}};
 
 use corelib::*;
 
+pub type ComChannel = Channel<NoopRawMutex, ComItem, 128>;
 const CAN_BAUDRATE: &str = env!("CAN_BAUDRATE");
 
 pub fn init() ->

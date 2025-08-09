@@ -15,6 +15,7 @@ use esp_println::println;
 use log::info;
 
 use corelib::*;
+use crate::ComChannel;
 
 #[embassy_executor::task]
 pub async fn comm(

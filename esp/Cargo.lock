@@ -83,7 +83,6 @@ checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
 name = "corelib"
 version = "0.1.0"
 dependencies = [
- "embassy-sync 0.6.2",
  "embassy-time",
  "embedded-can",
  "heapless",

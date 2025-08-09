@@ -15,7 +15,8 @@ use esp_radio::wifi::{ClientConfiguration, Configuration, WifiController, WifiDe
 use embedded_io_async::Write;
 use log::{info, warn};
 
-use corelib::{ComChannel, ComItem, DeSer, Error, RxBuffer, Serialize}; 
+use crate::ComChannel;
+use corelib::{ComItem, DeSer, Error, RxBuffer, Serialize}; 
 
 
 const SSID: &str = env!("SSID");
