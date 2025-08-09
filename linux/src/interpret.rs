@@ -1,6 +1,6 @@
 use crate::Config;
 
-pub fn interpret(mut input: String, config: &Config) -> Vec<(bool, String)> {
+pub fn interpret(input: String, config: &Config) -> Vec<(bool, String)> {
     let mut r: Vec<(bool, String)> = Vec::new();
 
     if config.commands.contains_key(&input) {

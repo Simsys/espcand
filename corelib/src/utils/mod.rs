@@ -5,7 +5,7 @@ mod ser_deser;
 
 pub use can_frame::*;
 pub use error::*;
-pub use crate::filter::{NFilter, PFilter};
+pub use crate::filter::{NFilter, PrePFilter};
 pub use rx_buffer::*;
 pub use ser_deser::*;
 
@@ -16,7 +16,7 @@ pub enum ComItem {
     Error(Error),
     FrameToSend(CanFrame),
     NFilter(NFilter),
-    PFilter(PFilter),
+    PFilter(PrePFilter),
     ReceivedFrame(CanFrame),
     ShowFilters,
 }
@@ -30,7 +30,7 @@ impl ComItem {
             b"$err" => ComItem::Error(Error::deserialize(deser)?),
             b"$fts" => ComItem::FrameToSend(CanFrame::deserialize(deser)?),
             b"$nfilt" => ComItem::NFilter(NFilter::deserialize(deser)?),
-            b"$pfilt" => ComItem::PFilter(PFilter::deserialize(deser)?),
+            b"$pfilt" => ComItem::PFilter(PrePFilter::deserialize(deser)?),
             b"$rf" => ComItem::ReceivedFrame(CanFrame::deserialize(deser)?),
             b"$filt?" => ComItem::ShowFilters,
             _ => return Err(Error::ParseError),
@@ -59,9 +59,9 @@ impl ComItem {
                 ser.add_slice(b"$nfilt").unwrap();
                 nfilter.serialize(&mut ser).unwrap();
             }
-            Self::PFilter(pfilter) => {
+            Self::PFilter(pre_pfilter) => {
                 ser.add_slice(b"$pfilt").unwrap();
-                pfilter.serialize(&mut ser).unwrap();
+                pre_pfilter.serialize(&mut ser).unwrap();
             }
             Self::ReceivedFrame(frame) => {
                 ser.add_slice(b"$rf").unwrap();

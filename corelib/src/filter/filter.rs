@@ -6,6 +6,49 @@ use super::{add_ones_zeros, IdTimes, get_ones_zeros, check, TInstant};
 
 
 #[derive(PartialEq, Debug, Copy, Clone)]
+pub struct PrePFilter {
+    extended: bool,
+    duration: u32,
+    ones: u32,
+    zeros: u32,
+}
+
+impl PrePFilter {
+    pub fn new(
+        duration: u32,
+        bytes: &[u8]
+    ) -> Result<Self, Error> {
+        let (extended, ones, zeros) = get_ones_zeros(bytes)?;
+        Ok(Self { extended, duration, ones, zeros })
+    }
+
+    pub fn into(self) -> PFilter {
+        PFilter { 
+            extended: self.extended, 
+            duration: self.duration, 
+            ones: self.ones, 
+            zeros: self.zeros, 
+            id_times: IdTimes::new() 
+        }
+    }
+
+    pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
+        let duration = deser.get_u32()?;
+        let slice = &deser.get_slice()?[1..];
+        let (extended, ones, zeros) = get_ones_zeros(slice)?;
+        Ok(Self { extended, duration, ones, zeros })
+    }
+
+    pub fn serialize(&self, ser: &mut impl Serialize) -> Result<(), Error> {
+        ser.add_byte(b',')?;
+        ser.add_uint(self.duration)?;
+        ser.add_byte(b',')?;
+        add_ones_zeros(ser, self.extended, self.ones, self.zeros);
+        Ok(())
+    }
+}
+
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct PFilter {
     extended: bool,
     duration: u32,
@@ -21,6 +64,15 @@ impl PFilter {
     ) -> Result<Self, Error> {
         let (extended, ones, zeros) = get_ones_zeros(bytes)?;
         Ok(Self { extended, duration, ones, zeros, id_times: IdTimes::new() })
+    }
+
+    pub fn as_pre_pfilter(&self) -> PrePFilter {
+        PrePFilter { 
+            extended: self.extended, 
+            duration: self.duration, 
+            ones: self.ones, 
+            zeros: self.zeros 
+        }
     }
 
     pub fn check(&mut self, id: Id, instant: TInstant) -> bool {
@@ -41,21 +93,6 @@ impl PFilter {
         }
         check(id, self.ones, self.zeros, self.extended)
     }
-
-    pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
-        let duration = deser.get_u32()?;
-        let slice = &deser.get_slice()?[1..];
-        let (extended, ones, zeros) = get_ones_zeros(slice)?;
-        Ok(Self { extended, duration, ones, zeros, id_times: IdTimes::new() })
-    }
-
-    pub fn serialize(&self, ser: &mut impl Serialize) -> Result<(), Error> {
-        ser.add_byte(b',')?;
-        ser.add_uint(self.duration)?;
-        ser.add_byte(b',')?;
-        add_ones_zeros(ser, self.extended, self.ones, self.zeros);
-        Ok(())
-    }
 }
 
 
@@ -68,8 +105,8 @@ impl<const CAP: usize> PFilters<CAP> {
         Self { pfilters: Vec::new() }
     }
 
-    pub fn add(&mut self, pfilter: PFilter) -> Result<(), Error> {
-        self.pfilters.push(pfilter).map_err(|_| Error::BufIsFull)
+    pub fn add(&mut self, pfilter: PrePFilter) -> Result<(), Error> {
+        self.pfilters.push(pfilter.into()).map_err(|_| Error::BufIsFull)
     }
 
     pub fn check(&mut self, id: Id, instant: Instant) -> bool {
@@ -273,11 +310,11 @@ mod tests {
         assert_eq!(filter.check(s_id(0b110_0110_1111), 0.into()), false);
 
         let mut filter = PFilter::new(1000, b"1*0_0110_0**1").unwrap();
-        assert_eq!(filter.check(s_id(0b110_0110_0111), 500.into()), false);
+        assert_eq!(filter.check(s_id(0b110_0110_0111), 500.into()), true);
         assert_eq!(filter.check(s_id(0b110_0110_0111), 1000.into()), false);
         assert_eq!(filter.check(s_id(0b110_0110_0111), 1501.into()), true);
 
-        assert_eq!(filter.check(s_id(0b100_0110_0001), 500.into()), false);
+        assert_eq!(filter.check(s_id(0b100_0110_0001), 500.into()), true);
         assert_eq!(filter.check(s_id(0b100_0110_0001), 1000.into()), false);
         assert_eq!(filter.check(s_id(0b100_0110_0001), 1501.into()), true);
 
@@ -288,9 +325,9 @@ mod tests {
     #[test]
     fn check_pfilters() {
         let mut pfilters = PFilters::<10>::new();
-        let filter = PFilter::new(0, b"110_0110_0000").unwrap();
+        let filter = PrePFilter::new(0, b"110_0110_0000").unwrap();
         pfilters.add(filter).unwrap();
-        let filter = PFilter::new(0, b"110_0110_0001").unwrap();
+        let filter = PrePFilter::new(0, b"110_0110_0001").unwrap();
         pfilters.add(filter).unwrap();
         assert_eq!(pfilters.check(s_id(0b110_0110_0000), Instant::from_millis(0)), true);
         assert_eq!(pfilters.check(s_id(0b110_0110_0001), Instant::from_millis(0)), true);
@@ -350,10 +387,10 @@ mod tests {
     fn pfilter_serialize() {
         let slice = b",17,1_1111_0000_1111_0000_11*1_000*_1111,";
         let mut deser = DeSer::<50>::from_slice(slice).unwrap();
-        let pfilter = PFilter::deserialize(&mut deser).unwrap();
+        let pre_pfilter = PrePFilter::deserialize(&mut deser).unwrap();
         let mut ser = Ser::<40>::new();
-        pfilter.serialize(&mut ser).unwrap();
-        println!("pfilter {}", str::from_utf8(ser.as_slice()).unwrap());
+        pre_pfilter.serialize(&mut ser).unwrap();
+        println!("pre_pfilter {}", str::from_utf8(ser.as_slice()).unwrap());
         assert_eq!(ser.as_slice(), &slice[..slice.len()-1]);
 
     }

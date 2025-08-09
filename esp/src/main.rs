@@ -84,7 +84,7 @@ async fn main(spawner: Spawner) -> ! {
                             wifi_tx_channel.send(ComItem::NFilter(nfilter.clone())).await;
                         }
                         for pfilter in pfilters.get_vec_ref() {
-                            wifi_tx_channel.send(ComItem::PFilter(pfilter.clone())).await;
+                            wifi_tx_channel.send(ComItem::PFilter(pfilter.as_pre_pfilter())).await;
                         }
                     }
                 }
