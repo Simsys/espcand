@@ -63,20 +63,32 @@ impl App {
 
         smol::block_on(async {
             let mut stream = TcpStream::connect(&config.ip).await?;
+            let mut reconnect = 0;
+            self.widgets.cmd().add_item("<Connected>".to_owned());
 
             while !self.should_exit {
+                if reconnect > 50 {
+                    if let Ok(new_stream) = TcpStream::connect(&config.ip).await {
+                        stream = new_stream;
+                        self.widgets.cmd().add_item("<Reconnected>".to_owned());
+                    }
+                    reconnect = 0;
+                }
+
                 FutureExt::or(
                     async {
                         let _ = smol::io::copy(&mut stream, &mut self.widgets).await;
                     },
                     async {
                         Timer::interval(Self::TICK_RATE).next().await;
+                        reconnect += 1;
                     },
                 )
                 .await;
 
                 let _ = self.handle_events();
                 for (send_to_stream, cmd) in interpret(self.get_input(), &config) {
+                    reconnect = 0;
                     if send_to_stream {
                         let show = format!("<= {}", cmd.as_str());
                         self.widgets.cmd().add_item(show);

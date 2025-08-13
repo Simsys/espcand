@@ -20,7 +20,7 @@ pub fn interpret(input: String, config: &Config) -> Vec<(bool, String)> {
                 }
             }
             _ => {
-                if input.is_empty() {
+                if !input.is_empty() {
                     let cmd = format!("${}\n", input.as_str());
                     r.push((true, cmd));
                 }
