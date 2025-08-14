@@ -21,8 +21,11 @@ CAN Bus Filter Commands:
 - $filt? Show all Filters
 
 Other Commands and Informations:
-- $echo Echo commad
+- $echo Echo command
+- $end End command
 - $err Error information
+- $magic Magic command
+- $save Save command
 
 In this document, the symbol <= is used to indicate communication from the host to the WiFi bridge, and => is used to indicate communication from the WiFi bridge to the host.
 
@@ -190,7 +193,7 @@ Example:
 
 ## Other Commands and Informations:
 
-### $echo Echo commad
+### $echo Echo command
 
 The echo command is always answered by the WiFi bridge and can be used to test whether a TCP connection exists, even if no CAN bus is available.
 
@@ -207,6 +210,12 @@ Example:
 => $echo
 ```
 
+### $end End command
+
+The end command marks the end of stored commands in flash memory (see also $magic and $save).
+
+Direction Wifi-Bridge <=> Flash
+
 ### $err Error information
 
 The WiFi bridge responds with error messages when it cannot interpret commands or other error situations arise.
@@ -220,6 +229,28 @@ $err,<ErrorMessage><10>
 Example:
 
 ```
-<= Quatsch
+<= $Quatsch
 => $err,ParseError
+```
+
+### $magic Magic command
+
+The Magic command marks the beginning of the commands stored in Flash (see also $end and $save).
+
+Direction Wifi-Bridge <=> Flash
+
+### $save Save command
+
+The Save command can be used to persist filter settings in flash memory. These are then loaded when the software is started up and are thus retained permanently.
+
+Direction Wifi-Bridge <= Host
+
+```
+$save<10>
+```
+
+Example:
+
+```
+<= $save
 ```
