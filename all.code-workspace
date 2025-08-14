@@ -9,8 +9,8 @@
 			"path": "esp"
 		},
 		{
-			"name": "linux",
-			"path": "linux"
+			"name": "canterm",
+			"path": "canterm"
 		},
 		{
 			"name": "espcand",
