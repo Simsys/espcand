@@ -4,23 +4,26 @@ This document describes the protocol exchanged between the host and the CAN-WiFi
 
 ## Basics
 
-The protocol uses the ASCII character set. Each piece of information or command begins with the $ sign followed by the command name  and ends with the <10> (next line) character. The command name may be followed by a comma-separated list of data before the next line character. Hexadezimale Daten werden mit Kleinbuchstaben bezeichnet.
+The protocol uses the ASCII character set. Each piece of information or command begins with the $ sign followed by the command name  and ends with the 0x0a (next line) character. The command name may be followed by a comma-separated list of data before the next line character. Hexadecimal data is denoted by lowercase letters.
 
 The protocol can be output directly as a data stream in a terminal window. It is human-readable.
 
 Commands sent from the host to the bridge are not confirmed by the bridge. However, incorrect commands are acknowledged with an error message. Data and information from the WiFi bridge are not confirmed by the host.
 
 CAN Bus Frames:
+
 - $rf Received Frame
 - $fts Frame to Send
 
 CAN Bus Filter Commands:
+
 - $pfilt Define a positive Filter
 - $nfilt Define a negative Filter
 - $clearfilt Clear all Filters
 - $filt? Show all Filters
 
 Other Commands and Informations:
+
 - $echo Echo command
 - $end End command
 - $err Error information
@@ -34,6 +37,7 @@ In this document, the symbol <= is used to indicate communication from the host 
 A CAN bus frame consists of the ID, an info byte, and the data. The ID has a length of either 11 (CAN standard) or 29 (CAN extended) bits.
 
 The info byte is bit-encoded:
+
 - Bit 7: 1-Extended ID, 0-Standard ID
 - Bit 6: 1-Remote Frame, 0-Data Frame
 - Bits 4..5: reserved
@@ -51,6 +55,7 @@ Direction Wifi-Bridge => Host
 $rf,<id>,<info>,<data><10>
 ```
 Format:
+
 - id Hexadecimal
 - info Hexadecimal
 - data Hexadecimal (length is always even)
@@ -62,24 +67,26 @@ Examples:
 ```
 
 - Receifed frame
-- ID 12a
-- Info 3 (standard ID, data frame, 3 bytes data follow)
+- id 12a
+- info 3 (standard ID, data frame, 3 bytes data follow)
+- data 1a2b3c
 
 ```
 => $rf,aa,94,1a2b3c4d
 ```
 
 - Received frame
-- ID aa
-- Info 94 (extended ID, data frame, 4 bytes data follow)
+- id aa
+- info 94 (extended id, data frame, 4 bytes data follow)
+- data 1a2b3c4d
 
 ```
 => §rf,8,44,
 ```
 
 - Received frame
-- Remote frame
-- DLC 4
+- id 8
+- info 44 (standard id, remote frame, dlc 4)
 
 ### $fts Frame to Send
 
@@ -91,6 +98,7 @@ Direction Wifi-Bridge <= Host
 $fts,<id>,<info>,<data><10>
 ```
 Format:
+
 - id Hexadecimal
 - info Hexadecimal
 - data Hexadecimal (length is always even)
@@ -117,7 +125,7 @@ Example:
 ```
 Pattern 1*1_1010_010*
 ```
-This pattern is defined for datagrams with a standard ID and matches the IDs 5a4, 5a5, 7a4 and 7a5.
+This pattern is defined for datagrams with a standard id and matches the IDs 5a4, 5a5, 7a4 and 7a5.
 
 Up to 10 positive and 10 negative filters can be defined.
 
@@ -131,7 +139,8 @@ Direction Wifi-Bridge <= Host
 $pfilt,<duration>,<match-pattern><10>
 ```
 Format:
-- duration Decimal
+
+- duration decimal
 - match-pattern see description
 
 ```
@@ -154,13 +163,14 @@ Direction Wifi-Bridge <= Host
 $nfilt,<match-pattern><10>
 ```
 Format:
+
 - match-pattern see description
 
 Example:
 ```
 <= $nfilt,1**_****_****
 ```
-All datagrams with an ID > 7ff are discarded.
+All datagrams with an id > 7ff are discarded.
 
 ### $clearfilt Clear all Filters
 
