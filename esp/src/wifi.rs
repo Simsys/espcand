@@ -5,13 +5,12 @@ use embassy_time::{Duration, Timer};
 
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_println::println;
 use esp_radio::wifi::{
     ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState,
 };
 
 use embedded_io_async::Write;
-use log::{info, warn};
+use log::{error, info, warn};
 
 use crate::ComChannel;
 use corelib::{ComItem, DeSer, Error, RxBuffer, Serialize};
@@ -39,10 +38,10 @@ pub async fn comm(
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    println!("Waiting to get IP address...");
+    info!("Waiting to get IP address...");
     loop {
         if let Some(config) = stack.config_v4() {
-            println!("Got IP: {}", config.address);
+            info!("Got IP: {}", config.address);
             break;
         }
         Timer::after(Duration::from_millis(500)).await;
@@ -91,7 +90,7 @@ async fn socket_write_read(
             let ser = com_item.serialize();
             match socket.write_all(ser.as_slice()).await {
                 Ok(()) => (),
-                Err(_) => println!("Socket write error"),
+                Err(_) => error!("Socket write error"),
             };
         }
         Either::Second(n) => {
@@ -115,21 +114,13 @@ async fn socket_write_read(
 
 #[embassy_executor::task]
 pub async fn connection(mut controller: WifiController<'static>) {
-    println!("start connection task");
-    println!("Device capabilities: {:?}", controller.capabilities());
+    info!("start connection task");
+    info!("Device capabilities: {:?}", controller.capabilities());
     loop {
         if esp_radio::wifi::wifi_state() == WifiState::StaConnected {
             controller.wait_for_event(WifiEvent::StaDisconnected).await;
             Timer::after(Duration::from_millis(5000)).await
         }
-        /*match esp_radio::wifi::wifi_state() {
-            WifiState::StaConnected => {
-                // wait until we're no longer connected
-                controller.wait_for_event(WifiEvent::StaDisconnected).await;
-                Timer::after(Duration::from_millis(5000)).await
-            }
-            _ => {}
-        }*/
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.into(),
@@ -137,16 +128,16 @@ pub async fn connection(mut controller: WifiController<'static>) {
                 ..Default::default()
             });
             controller.set_configuration(&client_config).unwrap();
-            println!("Starting wifi");
+            info!("Starting wifi");
             controller.start_async().await.unwrap();
-            println!("Wifi started!");
+            info!("Wifi started!");
         }
-        println!("About to connect...");
+        info!("About to connect...");
 
         match controller.connect_async().await {
-            Ok(_) => println!("Wifi connected!"),
+            Ok(_) => info!("Wifi connected!"),
             Err(_e) => {
-                println!("Failed to connect to wifi");
+                error!("Failed to connect to wifi");
                 Timer::after(Duration::from_millis(5000)).await
             }
         }

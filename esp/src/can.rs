@@ -9,8 +9,7 @@ use esp_hal::{
     twai::{EspTwaiFrame, Twai},
     Async,
 };
-use esp_println::println;
-use log::info;
+use log::{error, info};
 
 use crate::ComChannel;
 use corelib::*;
@@ -36,7 +35,7 @@ pub async fn comm(
             Either3::Second(rx_frame) => {
                 let frame = match rx_frame {
                     Err(_) => {
-                        println!("Got can bus error");
+                        error!("Got can bus error");
                         continue;
                     }
                     Ok(esp_frame) => CanFrame::from_frame(esp_frame),
@@ -44,7 +43,10 @@ pub async fn comm(
                 if is_connected {
                     match wifi_tx_channel.try_send(ComItem::ReceivedFrame(frame)) {
                         Ok(()) => (),
-                        Err(_) => println!("Can Queue Error"),
+                        Err(_) => {
+                            error!("Can Queue");
+                            esp_hal::system::software_reset();
+                        }
                     }
                 }
             }
@@ -55,10 +57,9 @@ pub async fn comm(
                     } else {
                         EspTwaiFrame::new(can_frame.id(), can_frame.data()).unwrap()
                     };
-                    println!("{:?}", &frame);
                     match twai.transmit_async(&frame).await {
                         Ok(()) => (),
-                        Err(_) => println!("Could not send can frame"),
+                        Err(_) => error!("Could not send can frame"),
                     }
                 }
             }

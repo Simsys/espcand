@@ -1,6 +1,6 @@
 # Protocol
 
-This document describes the protocol exchanged between the host and the CAN-WiFi bridge via TCP.
+This document describes the protocol exchanged between the host and the CAN-WiFi bridge via TCP. The protocol is also used to persist filter settings in Flash. Therefore, some commands are not available on the TCP interface or will never appear there. Details are explained in the description.
 
 ## Basics
 
