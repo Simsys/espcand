@@ -646,6 +646,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "esp-storage"
+version = "0.7.0"
+dependencies = [
+ "critical-section",
+ "document-features",
+ "embedded-storage",
+ "esp-rom-sys",
+]
+
+[[package]]
 name = "esp-wifi-sys"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,6 +740,7 @@ dependencies = [
  "embassy-time",
  "embedded-can",
  "embedded-io-async",
+ "embedded-storage",
  "esp-alloc",
  "esp-backtrace",
  "esp-bootloader-esp-idf",
@@ -738,6 +749,7 @@ dependencies = [
  "esp-println",
  "esp-radio",
  "esp-radio-preempt-baremetal",
+ "esp-storage",
  "log",
  "nb 1.1.0",
  "static_cell",

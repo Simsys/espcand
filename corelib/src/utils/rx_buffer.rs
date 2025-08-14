@@ -1,4 +1,4 @@
-use crate::{DeSerialize, Error};
+use crate::{DeSerialize, Error, Serialize};
 
 pub struct RxBuffer<const CAP: usize> {
     buf: [u8; CAP],
@@ -17,10 +17,23 @@ impl<const CAP: usize> Default for RxBuffer<CAP> {
 }
 
 impl<const CAP: usize> RxBuffer<CAP> {
-    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+    pub fn clear(&mut self) {
+        self.head = 0;
+        self.tail = 0;
+    }
+
+    pub fn en_mut_block(&mut self) -> &mut [u8] {
         self.head = 0;
         self.tail = 0;
         &mut self.buf
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[..self.head]
+    }
+
+    pub fn len(&self) -> usize {
+        self.head - self.tail
     }
 
     pub fn set_head(&mut self, head: usize) {
@@ -50,7 +63,7 @@ impl<const CAP: usize> RxBuffer<CAP> {
             }
             tail += 1;
             if tail == CAP {
-                tail = 0;
+                return  Err(Error::BufIsFull);
             }
             if b == b'\n' {
                 self.tail = tail;
@@ -58,5 +71,17 @@ impl<const CAP: usize> RxBuffer<CAP> {
             }
         }
         Err(Error::EndNotFound)
+    }
+
+    pub fn write(&mut self, ser: &impl Serialize) -> Result<(), Error> {
+        let slice = ser.as_slice();
+        if slice.len() > CAP - self.head {
+            Err(Error::BufIsFull)
+        } else {
+            let new_head = self.head + slice.len();
+            self.buf[self.head..new_head].copy_from_slice(slice);
+            self.head = new_head;
+            Ok(())
+        }
     }
 }

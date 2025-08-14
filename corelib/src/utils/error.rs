@@ -13,6 +13,8 @@ pub enum Error {
     BufIsFull,
     /// No Data in Buffer
     BufIsEmpty,
+    /// Magic number not found
+    MagicNotFound,
     /// No start character found in the data stream
     NoBeginFound,
     /// Function not supported
@@ -31,6 +33,7 @@ impl From<&[u8]> for Error {
             b"EndNotFound" => Self::EndNotFound,
             b"BufIsFull" => Self::BufIsFull,
             b"BufIsEmpty" => Self::BufIsEmpty,
+            b"MagicNotFound" => Self::MagicNotFound,
             b"NoBeginFound" => Self::NoBeginFound,
             b"NotSupported" => Self::NotSupported,
             b"UnknownCommand" => Self::UnknownCommand,
@@ -47,6 +50,7 @@ impl Error {
             Self::EndNotFound => b"EndNotFound",
             Self::BufIsFull => b"BufIsFull",
             Self::BufIsEmpty => b"BufIsEmpty",
+            Self::MagicNotFound => b"MagicNotFound",
             Self::NoBeginFound => b"NoBeginFound",
             Self::NotSupported => b"NotSupported",
             Self::UnknownCommand => b"UnknownCommand",

@@ -18,8 +18,10 @@ use esp_radio::{
     wifi::{WifiController, WifiDevice},
     Controller,
 };
+use esp_storage::FlashStorage;
 
 use corelib::*;
+use crate::config::Config;
 
 pub type ComChannel = Channel<NoopRawMutex, ComItem, 128>;
 const CAN_BAUDRATE: &str = env!("CAN_BAUDRATE");
@@ -36,6 +38,7 @@ pub fn init() -> (
     &'static ComChannel,
     Receiver<'static, CriticalSectionRawMutex, bool, 1>,
     Sender<'static, CriticalSectionRawMutex, bool, 1>,
+    Config,
 ) {
     esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -102,6 +105,10 @@ pub fn init() -> (
         SIGNAL_CONN.receiver().unwrap();
     let signal_conn_tx: Sender<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.sender();
 
+    let flash = FlashStorage::new();
+    let config = Config::new(flash);
+
+
     (
         runner,
         stack,
@@ -113,5 +120,6 @@ pub fn init() -> (
         wifi_tx_channel,
         signal_conn_rx,
         signal_conn_tx,
+        config,
     )
 }

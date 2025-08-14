@@ -49,7 +49,6 @@ pub async fn comm(
     }
 
     let mut socket = TcpSocket::new(stack, rx_buffer, tx_buffer);
-    socket.set_timeout(Some(Duration::from_secs(10)));
 
     loop {
         info!("Listening on TCP:1234...");
@@ -84,7 +83,7 @@ async fn socket_write_read(
     rxbuf: &mut RxBuffer<2048>,
 ) -> Result<(), Error> {
     let socket_write = async { wifi_tx_channel.receive().await };
-    let socket_read = async { (socket.read(rxbuf.as_mut_slice()).await).unwrap_or_default() };
+    let socket_read = async { (socket.read(rxbuf.en_mut_block()).await).unwrap_or_default() };
 
     // Wait for both and handle first event
     match select(socket_write, socket_read).await {

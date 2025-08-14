@@ -19,6 +19,7 @@ corelib             = { path = "../corelib" }
 log                 = "0.4.27"
 embedded-can        = "0.4.1"
 embedded-io-async   = "0.6.1"
+embedded-storage    = "0.3.1"
 static_cell         = { version = "2.1.0" }
 
 embassy-executor    = { version = "0.7.0", features = ["task-arena-size-20480"] }
@@ -39,6 +40,7 @@ esp-hal-embassy     = { path = "../esp-hal/esp-hal-embassy" }
 esp-println         = { path = "../esp-hal/esp-println", features = ["log-04"] }
 esp-radio           = { path = "../esp-hal/esp-radio", features = ["wifi", "log-04"]}
 esp-radio-preempt-baremetal = { path = "../esp-hal/esp-radio-preempt-baremetal", features = ["log-04"]}
+esp-storage         = { path = "../esp-hal/esp-storage" }
 
 [dev-dependencies]
 nb                  = "1.1.0"
@@ -52,4 +54,5 @@ esp32c3 = [
     "esp-println/esp32c3",
     "esp-radio/esp32c3",
     "esp-radio-preempt-baremetal/esp32c3",
+    "esp-storage/esp32c3",
 ]

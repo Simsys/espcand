@@ -3,6 +3,7 @@
 mod macros;
 
 mod can;
+mod config;
 mod init;
 mod wifi;
 
@@ -18,7 +19,10 @@ use esp_backtrace as _;
 use corelib::*;
 use init::*;
 
+use crate::config::ConfigBuffer;
+
 esp_bootloader_esp_idf::esp_app_desc!();
+const FILTER_SIZE: usize = 10;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
@@ -33,7 +37,10 @@ async fn main(spawner: Spawner) -> ! {
         wifi_tx_channel,
         signal_conn_rx,
         signal_conn_tx,
+        mut config,
     ) = init();
+
+    config.load(wifi_rx_channel).await;
 
     spawner.spawn(wifi::connection(controller)).ok();
     spawner.spawn(wifi::net_task(runner)).ok();
@@ -54,8 +61,8 @@ async fn main(spawner: Spawner) -> ! {
         ))
         .ok();
 
-    let mut pfilters: PFilters<10> = PFilters::default();
-    let mut nfilters: NFilters<10> = NFilters::default();
+    let mut pfilters: PFilters<FILTER_SIZE> = PFilters::default();
+    let mut nfilters: NFilters<FILTER_SIZE> = NFilters::default();
 
     loop {
         let can_receive = async { can_rx_channel.receive().await };
@@ -86,7 +93,11 @@ async fn main(spawner: Spawner) -> ! {
                         Ok(()) => (),
                         Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
                     },
-                    ComItem::ReceivedFrame(_) => (), // wifi does not receive frames
+                    ComItem::Save => save_config(
+                        &pfilters, 
+                        &nfilters,
+                        &mut config,
+                    ).unwrap(),
                     ComItem::ShowFilters => {
                         for nfilter in nfilters.get_vec_ref() {
                             wifi_tx_channel.send(ComItem::NFilter(*nfilter)).await;
@@ -97,8 +108,26 @@ async fn main(spawner: Spawner) -> ! {
                                 .await;
                         }
                     }
+                    // these ComItems are not accepted from wifi
+                    ComItem::End | ComItem::Magic(_) | ComItem::ReceivedFrame(_) => (),
                 }
             }
         };
     }
+}
+
+pub fn save_config(
+    pfilters: &PFilters<FILTER_SIZE>, 
+    nfilters: &NFilters<FILTER_SIZE>,
+    config: &mut config::Config,
+) -> Result<(), Error> {
+    let mut buf = ConfigBuffer::default();
+    for pfilter in pfilters.get_vec_ref() {
+        buf.add_item(&ComItem::PFilter(pfilter.as_pre_pfilter()))?;
+    }
+    for nfilter in nfilters.get_vec_ref() {
+        buf.add_item(&ComItem::NFilter(*nfilter))?;
+    }
+    buf.finish(config)?;
+    Ok(())
 }
