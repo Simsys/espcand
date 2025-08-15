@@ -6,13 +6,35 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Receiver
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
-    twai::{EspTwaiFrame, Twai},
+    twai::{EspTwaiFrame, TimingConfig, Twai},
     Async,
 };
 use log::{error, info};
 
 use crate::ComChannel;
 use corelib::*;
+
+pub fn timing_config(timing: &str) -> TimingConfig {
+    let baud_rate_prescaler: u16 = match timing {
+        "B10K" => 400,
+        "B20K" => 200,
+        "B50K" => 80,
+        "B100K" => 40,
+        "B125K" => 32,
+        "B250K" => 16,
+        "B500K" => 8,
+        _ => 4, // "B1000K"
+    };
+    TimingConfig {
+        baud_rate_prescaler,
+        sync_jump_width: 3,
+        tseg_1: 15,
+        tseg_2: 4,
+        triple_sample: false,
+    }
+}
+
+
 
 #[embassy_executor::task]
 pub async fn comm(

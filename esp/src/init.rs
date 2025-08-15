@@ -8,11 +8,10 @@ use embassy_sync::{
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock,
-    rng::Rng,
-    timer::timg::TimerGroup,
-    twai::{self, filter::SingleStandardFilter, Twai, TwaiMode},
-    Async,
+    clock::CpuClock, 
+    rng::Rng, timer::timg::TimerGroup, 
+    twai::{BaudRate, self, Twai, TwaiMode}, 
+    Async
 };
 use esp_radio::{
     wifi::{WifiController, WifiDevice},
@@ -21,7 +20,7 @@ use esp_radio::{
 use esp_storage::FlashStorage;
 
 use corelib::*;
-use crate::config::Config;
+use crate::{can::timing_config, config::Config};
 
 pub type ComChannel = Channel<NoopRawMutex, ComItem, 128>;
 const CAN_BAUDRATE: &str = env!("CAN_BAUDRATE");
@@ -75,24 +74,14 @@ pub fn init() -> (
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
 
-    let baud_rate = match CAN_BAUDRATE {
-        "B125K" => twai::BaudRate::B125K,
-        "B250K" => twai::BaudRate::B250K,
-        "B500K" => twai::BaudRate::B500K,
-        _ => twai::BaudRate::B1000K,
-    };
-
-    let mut twai_config = twai::TwaiConfiguration::new(
+    let baud_rate = BaudRate::Custom(timing_config(CAN_BAUDRATE));
+    let twai_config = twai::TwaiConfiguration::new(
         peripherals.TWAI0,
         rx_pin,
         tx_pin,
         baud_rate,
         TwaiMode::Normal,
-    )
-    .into_async();
-    twai_config.set_filter(
-        const { SingleStandardFilter::new(b"xxxxxxxxxxx", b"x", [b"xxxxxxxx", b"xxxxxxxx"]) },
-    );
+    ).into_async();
     let twai: Twai<'_, Async> = twai_config.start();
 
     let can_rx_channel = &*mk_static!(ComChannel, ComChannel::new());
