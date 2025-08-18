@@ -4,6 +4,7 @@ runner    = "espflash flash --monitor --partition-table=partitions.csv"
 
 [env]
 ESP_LOG = "info"
+NVS_BASE_ADDRESS = "9000" # hex base address
 
 [build]
 rustflags = [

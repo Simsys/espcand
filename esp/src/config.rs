@@ -1,9 +1,8 @@
 
+use core::num::ParseIntError;
+
 use corelib::RxBuffer;
 use embedded_storage::{ReadStorage, Storage};
-use esp_bootloader_esp_idf::partitions::{
-    read_partition_table, AppPartitionSubType, DataPartitionSubType, PartitionType, PARTITION_TABLE_MAX_LEN
-};
 use esp_println::print;
 use esp_storage::FlashStorage;
 
@@ -11,40 +10,24 @@ use corelib::*;
 use log::{info, error};
 use crate::init::ComChannel;
 
-const CONF_BUFFER_SIZE: usize = 128;
+const CONF_BUFFER_SIZE: usize = 1024;
+const NVS_BASE_ADDRESS: Result<u32, ParseIntError> = u32::from_str_radix(env!("NVS_BASE_ADDRESS"), 16);
+
 
 pub struct Config {
     flash: FlashStorage,
+    base_address: u32,
 }
 
 impl Config {
     pub fn new(flash: FlashStorage) -> Self {
-        Self { flash }
+        let base_address = NVS_BASE_ADDRESS.unwrap_or(0x9000);
+        Self { flash, base_address }
     }
 
     pub async fn load(&mut self, wifi_rx_channel: &'static ComChannel) {
-        let mut pt_mem = [0u8; PARTITION_TABLE_MAX_LEN];
-        let pt = read_partition_table(&mut self.flash, &mut pt_mem).unwrap();
-
-        let mut app_desc = [0u8; 256];
-        pt
-            .find_partition(PartitionType::App(AppPartitionSubType::Factory))
-            .unwrap()
-            .unwrap()
-            .as_embedded_storage(&mut self.flash)
-            .read(32, &mut app_desc)
-            .unwrap();
-
         let mut buf = RxBuffer::<CONF_BUFFER_SIZE>::default();
-        let nvs = pt
-            .find_partition(PartitionType::Data(DataPartitionSubType::Nvs))
-            .unwrap()
-            .unwrap();
-        let mut nvs_partition = nvs.as_embedded_storage(&mut self.flash);
-        nvs_partition
-            .read(0, &mut buf.en_mut_block())
-            .unwrap();
-
+        self.flash.read(self.base_address, buf.en_mut_block()).unwrap();
         buf.set_head(CONF_BUFFER_SIZE);
 
         info!("Config read()", );
@@ -72,27 +55,9 @@ impl Config {
     }
 
     pub fn write(&mut self, tx_buf: &mut RxBuffer<CONF_BUFFER_SIZE>) {
-        let mut pt_mem = [0u8; PARTITION_TABLE_MAX_LEN];
-        let pt = read_partition_table(&mut self.flash, &mut pt_mem).unwrap();
-
-        let mut app_desc = [0u8; 256];
-        pt
-            .find_partition(PartitionType::App(AppPartitionSubType::Factory))
-            .unwrap()
-            .unwrap()
-            .as_embedded_storage(&mut self.flash)
-            .read(32, &mut app_desc)
-            .unwrap();
-
-        let nvs = pt
-            .find_partition(PartitionType::Data(DataPartitionSubType::Nvs))
-            .unwrap()
-            .unwrap();
-        let mut nvs_partition = nvs.as_embedded_storage(&mut self.flash);
-
         info!("Config write");
         print!("{}", str::from_utf8(&tx_buf.en_mut_block()).unwrap());
-        match nvs_partition.write(0, &tx_buf.en_mut_block()) {
+        match self.flash.write(self.base_address, &tx_buf.en_mut_block()) {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
