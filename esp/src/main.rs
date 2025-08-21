@@ -16,13 +16,9 @@ use embedded_can::Frame;
 use esp_alloc as _;
 use esp_backtrace as _;
 
-use corelib::*;
 use init::*;
 
-use crate::config::ConfigBuffer;
-
 esp_bootloader_esp_idf::esp_app_desc!();
-const FILTER_SIZE: usize = 10;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
@@ -61,9 +57,6 @@ async fn main(spawner: Spawner) -> ! {
         ))
         .ok();
 
-    let mut pfilters: PFilters<FILTER_SIZE> = PFilters::default();
-    let mut nfilters: NFilters<FILTER_SIZE> = NFilters::default();
-
     loop {
         let can_receive = async { can_rx_channel.receive().await };
         let wifi_receive = async { wifi_rx_channel.receive().await };
@@ -72,37 +65,34 @@ async fn main(spawner: Spawner) -> ! {
         match select(can_receive, wifi_receive).await {
             Either::First(com_item) => {
                 if let ComItem::ReceivedFrame(frame) = &com_item {
-                    if !nfilters.check(frame.id()) && pfilters.check(frame.id(), Instant::now()) {
+                    if !config.nfilters().check(frame.id()) && config.pfilters().check(frame.id(), Instant::now()) {
                         wifi_tx_channel.send(com_item).await;
                     }
                 }
             }
             Either::Second(com_item) => {
                 match com_item {
+                    ComItem::CanBitRate(_can_bit_rate) => (),
                     ComItem::ClearFilters => {
-                        pfilters.clear();
-                        nfilters.clear();
+                        config.pfilters().clear();
+                        config.nfilters().clear();
                     }
                     ComItem::Echo | ComItem::Error(_) => wifi_tx_channel.send(com_item).await,
                     ComItem::FrameToSend(_) => can_tx_channel.send(com_item).await,
-                    ComItem::NFilter(nfilter) => match nfilters.add(nfilter) {
+                    ComItem::NFilter(nfilter) => match config.nfilters().add(nfilter) {
                         Ok(()) => (),
                         Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
                     },
-                    ComItem::PFilter(pfilter) => match pfilters.add(pfilter) {
+                    ComItem::PFilter(pfilter) => match config.pfilters().add(pfilter) {
                         Ok(()) => (),
                         Err(error) => wifi_tx_channel.send(ComItem::Error(error)).await,
                     },
-                    ComItem::Save => save_config(
-                        &pfilters, 
-                        &nfilters,
-                        &mut config,
-                    ).unwrap(),
+                    ComItem::Save => config.save().unwrap(),
                     ComItem::ShowFilters => {
-                        for nfilter in nfilters.get_vec_ref() {
+                        for nfilter in config.nfilters().get_vec_ref() {
                             wifi_tx_channel.send(ComItem::NFilter(*nfilter)).await;
                         }
-                        for pfilter in pfilters.get_vec_ref() {
+                        for pfilter in config.pfilters().get_vec_ref() {
                             wifi_tx_channel
                                 .send(ComItem::PFilter(pfilter.as_pre_pfilter()))
                                 .await;
@@ -114,20 +104,4 @@ async fn main(spawner: Spawner) -> ! {
             }
         };
     }
-}
-
-pub fn save_config(
-    pfilters: &PFilters<FILTER_SIZE>, 
-    nfilters: &NFilters<FILTER_SIZE>,
-    config: &mut config::Config,
-) -> Result<(), Error> {
-    let mut buf = ConfigBuffer::default();
-    for pfilter in pfilters.get_vec_ref() {
-        buf.add_item(&ComItem::PFilter(pfilter.as_pre_pfilter()))?;
-    }
-    for nfilter in nfilters.get_vec_ref() {
-        buf.add_item(&ComItem::NFilter(*nfilter))?;
-    }
-    buf.finish(config)?;
-    Ok(())
 }

@@ -74,7 +74,10 @@ pub fn init() -> (
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
 
-    let baud_rate = BaudRate::Custom(timing_config(CAN_BAUDRATE));
+    let bit_rate = CanBitRate::from_slice(CAN_BAUDRATE.as_bytes())
+        .unwrap_or(CanBitRate::B1000k);
+    let timing = timing_config(bit_rate);
+    let baud_rate = BaudRate::Custom(timing);
     let twai_config = twai::TwaiConfiguration::new(
         peripherals.TWAI0,
         rx_pin,

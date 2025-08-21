@@ -14,16 +14,16 @@ use log::{error, info};
 use crate::ComChannel;
 use corelib::*;
 
-pub fn timing_config(timing: &str) -> TimingConfig {
-    let baud_rate_prescaler: u16 = match timing {
-        "B10K" => 400,
-        "B20K" => 200,
-        "B50K" => 80,
-        "B100K" => 40,
-        "B125K" => 32,
-        "B250K" => 16,
-        "B500K" => 8,
-        _ => 4, // "B1000K"
+pub fn timing_config(bit_rate: CanBitRate) -> TimingConfig {
+    let baud_rate_prescaler: u16 = match bit_rate {
+        CanBitRate::B10k => 400,
+        CanBitRate::B20k => 200,
+        CanBitRate::B50k => 80,
+        CanBitRate::B100k => 40,
+        CanBitRate::B125k => 32,
+        CanBitRate::B250k => 16,
+        CanBitRate::B500k => 8,
+        CanBitRate::B1000k => 4,
     };
     TimingConfig {
         baud_rate_prescaler,
@@ -56,17 +56,17 @@ pub async fn comm(
             }
             Either3::Second(rx_frame) => {
                 let frame = match rx_frame {
+                    Ok(esp_frame) => CanFrame::from_frame(esp_frame),
                     Err(_) => {
-                        error!("Got can bus error");
+                        error!("Can Bus Error");
                         continue;
                     }
-                    Ok(esp_frame) => CanFrame::from_frame(esp_frame),
                 };
                 if is_connected {
                     match wifi_tx_channel.try_send(ComItem::ReceivedFrame(frame)) {
                         Ok(()) => (),
                         Err(_) => {
-                            error!("Can Queue");
+                            error!("Can Queue Error");
                             esp_hal::system::software_reset();
                         }
                     }

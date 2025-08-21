@@ -158,6 +158,58 @@ impl Display for CanFrame {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum CanBitRate {
+    B10k,
+    B20k,
+    B50k,
+    B100k,
+    B125k,
+    B250k,
+    B500k,
+    B1000k,
+}
+
+impl CanBitRate {
+    pub fn from_slice(slice: &[u8]) -> Result<Self, Error> {
+        let r = match slice {
+            b"B10K" => CanBitRate::B10k,
+            b"B20K" => CanBitRate::B20k,
+            b"B50K" => CanBitRate::B50k,
+            b"B100K" => CanBitRate::B100k,
+            b"B125K" => CanBitRate::B125k,
+            b"B250K" => CanBitRate::B250k,
+            b"B500K" => CanBitRate::B500k,
+            b"B1000K" => CanBitRate::B1000k,
+            _ => return Err(Error::BitrateNotSupported),
+        };
+        Ok(r)
+    }
+
+    pub fn to_slice(&self) -> &'static [u8] {
+        match self {
+            CanBitRate::B10k => b"B10K",
+            CanBitRate::B20k => b"B20K",
+            CanBitRate::B50k => b"B50K",
+            CanBitRate::B100k => b"B100K",
+            CanBitRate::B125k => b"B125K",
+            CanBitRate::B250k => b"B250K",
+            CanBitRate::B500k => b"B500K",
+            CanBitRate::B1000k => b"B1000K",
+        }
+    }
+
+    pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
+        let slice = &deser.get_slice()?[1..];
+        Self::from_slice(slice)
+    }
+
+    pub fn serialize(&self, ser: &mut impl Serialize) -> Result<(), Error> {
+        ser.add_byte(b',')?;
+        ser.add_slice(self.to_slice())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{DeSer, Ser};
@@ -188,5 +240,16 @@ mod tests {
         let slice = b",12a,2,1a2b3c,";
         let mut deser = DeSer::<40>::from_slice(slice).unwrap();
         assert_eq!(CanFrame::deserialize(&mut deser), Err(Error::ParseError));
+    }
+
+    #[test]
+    fn ok_can_bit_rate() {
+        let slice = b",B125K,";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let bitrate = CanBitRate::deserialize(&mut deser).unwrap();
+        let mut ser = Ser::<40>::default();
+        bitrate.serialize(&mut ser).unwrap();
+        println!("Can bit rate {}", str::from_utf8(ser.as_slice()).unwrap());
+        assert_eq!(ser.as_slice(), &slice[..slice.len() - 1]);
     }
 }

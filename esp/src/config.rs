@@ -7,22 +7,55 @@ use esp_println::print;
 use esp_storage::FlashStorage;
 
 use corelib::*;
-use log::{info, error};
-use crate::init::ComChannel;
+use log::info;
+use crate::{
+    init::ComChannel,
 
+};
+
+const FILTER_SIZE: usize = 10;
 const CONF_BUFFER_SIZE: usize = 1024;
 const NVS_BASE_ADDRESS: Result<u32, ParseIntError> = u32::from_str_radix(env!("NVS_BASE_ADDRESS"), 16);
-
 
 pub struct Config {
     flash: FlashStorage,
     base_address: u32,
+    pfilters: PFilters<FILTER_SIZE>, 
+    nfilters: NFilters<FILTER_SIZE>,
 }
 
 impl Config {
     pub fn new(flash: FlashStorage) -> Self {
         let base_address = NVS_BASE_ADDRESS.unwrap_or(0x9000);
-        Self { flash, base_address }
+        Self { 
+            flash, 
+            base_address, 
+            pfilters: PFilters::<FILTER_SIZE>::default(),
+            nfilters: NFilters::<FILTER_SIZE>::default(),
+        }
+    }
+
+    pub fn pfilters(&mut self) -> &mut PFilters<FILTER_SIZE> {
+        &mut self.pfilters
+    }
+
+    pub fn nfilters(&mut self) -> &mut NFilters<FILTER_SIZE> {
+        &mut self.nfilters
+    }
+
+    pub fn save(&mut self) -> Result<(), Error> {
+        let mut buf = RxBuffer::<CONF_BUFFER_SIZE>::default();
+        buf.write(&ComItem::Magic(true).serialize())?;
+
+        for pfilter in self.pfilters.get_vec_ref() {
+            buf.write(&ComItem::PFilter(pfilter.as_pre_pfilter()).serialize())?;
+        }
+        for nfilter in self.nfilters.get_vec_ref() {
+            buf.write(&ComItem::NFilter(*nfilter).serialize())?;
+        }
+
+        buf.write(&ComItem::End.serialize())?;
+        self.write(&mut buf)
     }
 
     pub async fn load(&mut self, wifi_rx_channel: &'static ComChannel) {
@@ -54,38 +87,10 @@ impl Config {
         }
     }
 
-    pub fn write(&mut self, tx_buf: &mut RxBuffer<CONF_BUFFER_SIZE>) {
+    fn write(&mut self, tx_buf: &mut RxBuffer<CONF_BUFFER_SIZE>) -> Result<(), Error> {
         info!("Config write");
         print!("{}", str::from_utf8(&tx_buf.en_mut_block()).unwrap());
-        match self.flash.write(self.base_address, &tx_buf.en_mut_block()) {
-            Ok(()) => (),
-            Err(e) => error!("{:?}", e),
-        }
-    }
-}
-
-pub struct ConfigBuffer {
-    buf: RxBuffer<CONF_BUFFER_SIZE>,
-}
-
-impl Default for ConfigBuffer {
-    fn default() -> Self {
-        let mut buf = RxBuffer::<CONF_BUFFER_SIZE>::default();
-        buf.write(&ComItem::Magic(true).serialize()).unwrap();
-        ConfigBuffer { buf }
-    }
-
-}
-
-impl ConfigBuffer {
-    pub fn add_item(&mut self, item: &ComItem) -> Result<(), Error> {
-        self.buf.write(&item.serialize())?;
-        Ok(())
-    }
-
-    pub fn finish(&mut self, config: &mut Config) -> Result<(), Error> {
-        self.buf.write(&ComItem::End.serialize())?;
-        config.write(&mut self.buf);
-        Ok(())
+        self.flash.write(self.base_address, &tx_buf.en_mut_block())
+            .map_err(|_| Error::FlashStorageError)
     }
 }

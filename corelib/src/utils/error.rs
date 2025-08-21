@@ -23,6 +23,10 @@ pub enum Error {
     UnknownCommand,
     /// Unknown error
     UnknownError,
+    /// Bitrate not supported
+    BitrateNotSupported,
+    /// Flash write error
+    FlashStorageError,
 }
 
 impl From<&[u8]> for Error {
@@ -37,6 +41,8 @@ impl From<&[u8]> for Error {
             b"NoBeginFound" => Self::NoBeginFound,
             b"NotSupported" => Self::NotSupported,
             b"UnknownCommand" => Self::UnknownCommand,
+            b"BitrateNotSupported" => Self::BitrateNotSupported,
+            b"FlashStorageError" => Self::FlashStorageError,
             _ => Self::UnknownError,
         }
     }
@@ -55,6 +61,8 @@ impl Error {
             Self::NotSupported => b"NotSupported",
             Self::UnknownCommand => b"UnknownCommand",
             Self::UnknownError => b"UnknownError",
+            Self::BitrateNotSupported => b"BitrateNotSupported",
+            Self::FlashStorageError => b"FlashStorageError",
         }
     }
 

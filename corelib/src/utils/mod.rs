@@ -11,6 +11,7 @@ pub use ser_deser::*;
 
 #[derive(Debug)]
 pub enum ComItem {
+    CanBitRate(CanBitRate),     // Host  => Bridge <=> Flash    Adjust Can bit rate
     ClearFilters,               // Host  => Bridge              Clear all Filters
     Echo,                       // Host <=> Bridge              Test TCP communicatiion
     End,                        //          Bridge <=> Flash    End of Data
@@ -28,6 +29,7 @@ impl ComItem {
     pub fn deserialize(deser: &mut impl DeSerialize) -> Result<Self, Error> {
         let slice = deser.get_slice()?;
         let r = match slice {
+            b"$canrate" => ComItem::CanBitRate(CanBitRate::deserialize(deser)?),
             b"$clearfilt" => ComItem::ClearFilters,
             b"$echo" => ComItem::Echo,
             b"$end" => ComItem::End,
@@ -51,6 +53,10 @@ impl ComItem {
     pub fn serialize(&self) -> Ser<50> {
         let mut ser = Ser::<50>::default();
         match self {
+            Self::CanBitRate(can_bit_rate) => {
+                ser.add_slice(b"$canrate").unwrap();
+                can_bit_rate.serialize(&mut ser).unwrap();
+            }
             Self::ClearFilters => ser.add_slice(b"$clearfilt").unwrap(),
             Self::Echo => ser.add_slice(b"$echo").unwrap(),
             Self::End => ser.add_slice(b"$end").unwrap(),
@@ -121,6 +127,13 @@ mod tests {
 
     #[test]
     fn ok_com_item() {
+        let slice = b"$canrate,B500K\n";
+        let mut deser = DeSer::<40>::from_slice(slice).unwrap();
+        let item = ComItem::deserialize(&mut deser).unwrap();
+        let ser = item.serialize();
+        println!("ComItem {}", str::from_utf8(ser.as_slice()).unwrap());
+        assert_eq!(ser.as_slice(), slice);
+
         let slice = b"$rf,12a,3,1a2b3c\n";
         let mut deser = DeSer::<40>::from_slice(slice).unwrap();
         let item = ComItem::deserialize(&mut deser).unwrap();
