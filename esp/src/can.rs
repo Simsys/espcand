@@ -1,7 +1,7 @@
 use embedded_can::Frame;
 
 use embassy_futures::select::{select3, Either3};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Receiver};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -41,12 +41,12 @@ pub async fn comm(
     mut twai: Twai<'static, Async>,
     wifi_tx_channel: &'static ComChannel,
     can_tx_channel: &'static ComChannel,
-    mut connection: Receiver<'static, CriticalSectionRawMutex, bool, 1>,
+    wifi_connection: &'static Signal<CriticalSectionRawMutex, bool>,
 ) {
     info!("start can receive");
     let mut is_connected = false;
     loop {
-        let conn = async { connection.changed().await };
+        let conn = async { wifi_connection.wait().await };
         let rx_frame = async { twai.receive_async().await };
         let tx_frame = async { can_tx_channel.receive().await };
 

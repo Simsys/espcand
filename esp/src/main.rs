@@ -31,8 +31,7 @@ async fn main(spawner: Spawner) -> ! {
         can_tx_channel,
         wifi_rx_channel,
         wifi_tx_channel,
-        signal_conn_rx,
-        signal_conn_tx,
+        wifi_connection,
         mut config,
     ) = init();
 
@@ -45,7 +44,7 @@ async fn main(spawner: Spawner) -> ! {
             stack,
             wifi_rx_channel,
             wifi_tx_channel,
-            signal_conn_tx,
+            wifi_connection,
         ))
         .ok();
     spawner
@@ -53,7 +52,7 @@ async fn main(spawner: Spawner) -> ! {
             twai,
             can_rx_channel,
             can_tx_channel,
-            signal_conn_rx,
+            wifi_connection,
         ))
         .ok();
 

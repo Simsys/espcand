@@ -1,6 +1,6 @@
 use embassy_futures::select::{select, Either};
 use embassy_net::{tcp::TcpSocket, Runner, Stack};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Sender};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 use embassy_time::{Duration, Timer};
 
 use esp_alloc as _;
@@ -23,13 +23,13 @@ pub async fn comm(
     stack: Stack<'static>,
     wifi_rx_channel: &'static ComChannel,
     wifi_tx_channel: &'static ComChannel,
-    set_connection: Sender<'static, CriticalSectionRawMutex, bool, 1>,
+    wifi_connection: &'static Signal<CriticalSectionRawMutex, bool>,
 ) {
     let rx_buffer = mk_static!([u8; 4096], [0; 4096]);
     let tx_buffer = mk_static!([u8; 4096], [0; 4096]);
     let mut rxbuf = RxBuffer::<2048>::default();
     //let mut txbuf = [0_u8; 4096];
-    set_connection.send(false);
+    wifi_connection.signal(false);
 
     loop {
         if stack.is_link_up() {
@@ -55,12 +55,12 @@ pub async fn comm(
             warn!("accept error: {e:?}");
             continue;
         }
-        set_connection.send(true);
+        wifi_connection.signal(true);
         info!("Received connection from {:?}", socket.remote_endpoint());
 
         loop {
             if !socket.may_recv() {
-                set_connection.send(false);
+                wifi_connection.signal(false);
                 socket.abort();
                 warn!("Connection closed");
                 break;

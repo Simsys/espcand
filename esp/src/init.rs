@@ -2,7 +2,7 @@ use embassy_net::{Runner, Stack, StackResources};
 use embassy_sync::{
     blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
     channel::Channel,
-    watch::{Receiver, Sender, Watch},
+    signal::Signal,
 };
 
 use esp_alloc as _;
@@ -35,8 +35,7 @@ pub fn init() -> (
     &'static ComChannel,
     &'static ComChannel,
     &'static ComChannel,
-    Receiver<'static, CriticalSectionRawMutex, bool, 1>,
-    Sender<'static, CriticalSectionRawMutex, bool, 1>,
+    &'static Signal<CriticalSectionRawMutex, bool>,
     Config,
 ) {
     esp_println::logger::init_logger_from_env();
@@ -92,11 +91,9 @@ pub fn init() -> (
     let wifi_rx_channel = &*mk_static!(ComChannel, ComChannel::new());
     let wifi_tx_channel = &*mk_static!(ComChannel, ComChannel::new());
 
-    static SIGNAL_CONN: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
-    let signal_conn_rx: Receiver<'static, CriticalSectionRawMutex, bool, 1> =
-        SIGNAL_CONN.receiver().unwrap();
-    let signal_conn_tx: Sender<'static, CriticalSectionRawMutex, bool, 1> = SIGNAL_CONN.sender();
-
+    static SIGNAL_CONN: Signal<CriticalSectionRawMutex, bool> = Signal::new();
+    let wifi_connection = &SIGNAL_CONN;
+    wifi_connection.signal(false);
     let flash = FlashStorage::new();
     let config = Config::new(flash);
 
@@ -110,8 +107,7 @@ pub fn init() -> (
         can_tx_channel,
         wifi_rx_channel,
         wifi_tx_channel,
-        signal_conn_rx,
-        signal_conn_tx,
+        wifi_connection,
         config,
     )
 }
