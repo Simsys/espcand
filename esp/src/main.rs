@@ -26,12 +26,13 @@ async fn main(spawner: Spawner) -> ! {
         runner,
         stack,
         controller,
-        twai,
+        can,
         can_rx_channel,
         can_tx_channel,
         wifi_rx_channel,
         wifi_tx_channel,
         wifi_connection,
+        sig_can_bit_rate,
         mut config,
     ) = init();
 
@@ -49,10 +50,11 @@ async fn main(spawner: Spawner) -> ! {
         .ok();
     spawner
         .spawn(can::comm(
-            twai,
+            can,
             can_rx_channel,
             can_tx_channel,
             wifi_connection,
+            sig_can_bit_rate,
         ))
         .ok();
 
@@ -71,7 +73,7 @@ async fn main(spawner: Spawner) -> ! {
             }
             Either::Second(com_item) => {
                 match com_item {
-                    ComItem::CanBitRate(_can_bit_rate) => (),
+                    ComItem::CanBitRate(can_bit_rate) => config.set_can_bit_rate(can_bit_rate),
                     ComItem::ClearFilters => {
                         config.pfilters().clear();
                         config.nfilters().clear();

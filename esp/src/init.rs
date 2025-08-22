@@ -8,10 +8,7 @@ use embassy_sync::{
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock, 
-    rng::Rng, timer::timg::TimerGroup, 
-    twai::{BaudRate, self, Twai, TwaiMode}, 
-    Async
+    clock::CpuClock, rng::Rng, timer::timg::TimerGroup
 };
 use esp_radio::{
     wifi::{WifiController, WifiDevice},
@@ -20,7 +17,7 @@ use esp_radio::{
 use esp_storage::FlashStorage;
 
 use corelib::*;
-use crate::{can::timing_config, config::Config};
+use crate::{can::Can, config::Config};
 
 pub type ComChannel = Channel<NoopRawMutex, ComItem, 128>;
 const CAN_BAUDRATE: &str = env!("CAN_BAUDRATE");
@@ -30,12 +27,13 @@ pub fn init() -> (
     Runner<'static, WifiDevice<'static>>,
     Stack<'static>,
     WifiController<'static>,
-    Twai<'static, Async>,
+    Can,
     &'static ComChannel,
     &'static ComChannel,
     &'static ComChannel,
     &'static ComChannel,
     &'static Signal<CriticalSectionRawMutex, bool>,
+    &'static Signal<CriticalSectionRawMutex, CanBitRate>,
     Config,
 ) {
     esp_println::logger::init_logger_from_env();
@@ -72,19 +70,11 @@ pub fn init() -> (
 
     let tx_pin = peripherals.GPIO3;
     let rx_pin = peripherals.GPIO2;
-
+    let twai0 = peripherals.TWAI0;
     let bit_rate = CanBitRate::from_slice(CAN_BAUDRATE.as_bytes())
         .unwrap_or(CanBitRate::B1000k);
-    let timing = timing_config(bit_rate);
-    let baud_rate = BaudRate::Custom(timing);
-    let twai_config = twai::TwaiConfiguration::new(
-        peripherals.TWAI0,
-        rx_pin,
-        tx_pin,
-        baud_rate,
-        TwaiMode::Normal,
-    ).into_async();
-    let twai: Twai<'_, Async> = twai_config.start();
+
+    let can = Can::new(twai0, rx_pin, tx_pin, bit_rate);
 
     let can_rx_channel = &*mk_static!(ComChannel, ComChannel::new());
     let can_tx_channel = &*mk_static!(ComChannel, ComChannel::new());
@@ -94,20 +84,25 @@ pub fn init() -> (
     static SIGNAL_CONN: Signal<CriticalSectionRawMutex, bool> = Signal::new();
     let wifi_connection = &SIGNAL_CONN;
     wifi_connection.signal(false);
+
+    static SIGNAL_CAN_BIT_RATE: Signal<CriticalSectionRawMutex, CanBitRate> = Signal::new();
+    let sig_can_bit_rate = &SIGNAL_CAN_BIT_RATE;
+
     let flash = FlashStorage::new();
-    let config = Config::new(flash);
+    let config = Config::new(flash, bit_rate, sig_can_bit_rate);
 
 
     (
         runner,
         stack,
         controller,
-        twai,
+        can,
         can_rx_channel,
         can_tx_channel,
         wifi_rx_channel,
         wifi_tx_channel,
         wifi_connection,
+        sig_can_bit_rate,
         config,
     )
 }

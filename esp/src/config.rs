@@ -2,6 +2,10 @@
 use core::num::ParseIntError;
 
 use corelib::RxBuffer;
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    signal::Signal,
+};
 use embedded_storage::{ReadStorage, Storage};
 use esp_println::print;
 use esp_storage::FlashStorage;
@@ -22,16 +26,24 @@ pub struct Config {
     base_address: u32,
     pfilters: PFilters<FILTER_SIZE>, 
     nfilters: NFilters<FILTER_SIZE>,
+    can_bit_rate: CanBitRate,
+    sig_can_bit_rate: &'static Signal<CriticalSectionRawMutex, CanBitRate>,
 }
 
 impl Config {
-    pub fn new(flash: FlashStorage) -> Self {
+    pub fn new(
+        flash: FlashStorage,
+        can_bit_rate: CanBitRate, 
+        sig_can_bit_rate: &'static Signal<CriticalSectionRawMutex, CanBitRate>
+    ) -> Self {
         let base_address = NVS_BASE_ADDRESS.unwrap_or(0x9000);
         Self { 
             flash, 
             base_address, 
             pfilters: PFilters::<FILTER_SIZE>::default(),
             nfilters: NFilters::<FILTER_SIZE>::default(),
+            can_bit_rate,
+            sig_can_bit_rate,
         }
     }
 
@@ -43,9 +55,16 @@ impl Config {
         &mut self.nfilters
     }
 
+    pub fn set_can_bit_rate(&mut self, bit_rate: CanBitRate) {
+        self.sig_can_bit_rate.signal(bit_rate);
+        self.can_bit_rate = bit_rate;
+    }
+
     pub fn save(&mut self) -> Result<(), Error> {
         let mut buf = RxBuffer::<CONF_BUFFER_SIZE>::default();
         buf.write(&ComItem::Magic(true).serialize())?;
+
+        buf.write(&ComItem::CanBitRate(self.can_bit_rate).serialize())?;
 
         for pfilter in self.pfilters.get_vec_ref() {
             buf.write(&ComItem::PFilter(pfilter.as_pre_pfilter()).serialize())?;
